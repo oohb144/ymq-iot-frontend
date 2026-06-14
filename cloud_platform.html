@@ -751,10 +751,10 @@ body { font-family:'Noto Sans SC','Inter',system-ui,sans-serif; background:var(-
       <div class="card">
         <div class="card-header"><div style="font-size:13px;font-weight:600;">实时状态</div><div class="badge badge-green" style="font-size:10px;">UWB</div></div>
         <div class="card-body" style="display:flex;flex-direction:column;gap:6px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">当前落点区域</span><span class="badge badge-green" style="font-size:11px;">A区 (前左)</span></div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">发球速度</span><span style="font-size:13px;font-weight:700;">85 km/h</span></div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">已发球数</span><span style="font-size:13px;font-weight:700;">156</span></div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">综合命中率</span><span style="font-size:13px;font-weight:700;color:var(--green);">78%</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">当前落点区域</span><span id="court-zone" class="badge badge-green" style="font-size:11px;">A区 (前左)</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">发球速度</span><span id="court-speed" style="font-size:13px;font-weight:700;">85 km/h</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">已发球数</span><span id="court-serving-count" style="font-size:13px;font-weight:700;">156</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">综合命中率</span><span id="court-accuracy" style="font-size:13px;font-weight:700;color:var(--green);">78%</span></div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">设备坐标</span><span id="uwb-coords" style="font-size:11px;font-weight:600;font-family:monospace;color:var(--cyan);">X:3.28 Y:5.12</span></div>
         </div>
       </div>
@@ -1152,7 +1152,7 @@ function switchPage(pageId, navItem) {
   else if (pageId === 'users') loadUsers();
   else if (pageId === 'settings') loadSettings();
   else if (pageId === 'analytics') loadAnalytics();
-  else if (pageId === 'training') { /* training page uses real-time controls */ }
+  else if (pageId === 'training') { loadTrainingState(); }
   else if (pageId === 'court') { refreshSensorData(); }
 }
 
@@ -1404,6 +1404,41 @@ async function loadDashboard() {
     safeSetHTML('dashboard-recent-alerts', html);
     lucide.createIcons();
   }
+  // Update charts from training stats
+  var statsResult = await apiFetch('/api/training/stats');
+  if (statsResult && statsResult.code === 0 && statsResult.data) {
+    var stats = statsResult.data;
+    // Update trend chart
+    if (window.trendChartInstance && stats.weekly_trend && stats.weekly_trend.length > 0) {
+      var wt = stats.weekly_trend;
+      window.trendChartInstance.data.labels = wt.map(function(d) { return d.date ? d.date.substring(5) : ''; });
+      window.trendChartInstance.data.datasets[0].data = wt.map(function(d) { return d.total_minutes ? Math.round(d.total_minutes/60*10)/10 : 0; });
+      window.trendChartInstance.data.datasets[1].data = wt.map(function(d) { return d.avg_accuracy ? Math.round(d.avg_accuracy) : 0; });
+      window.trendChartInstance.update();
+    }
+    // Update mode distribution chart
+    if (window.modeChartInstance && stats.mode_distribution && stats.mode_distribution.length > 0) {
+      var md = stats.mode_distribution;
+      var modeNames = { fixed_point: '定点发球', self_training: '自主训练', footwork: '步伐训练' };
+      var modeColors = { fixed_point: '#3B82F6', self_training: '#22C55E', footwork: '#F59E0B' };
+      window.modeChartInstance.data.labels = md.map(function(d) { return modeNames[d.mode] || d.mode; });
+      window.modeChartInstance.data.datasets[0].data = md.map(function(d) { return d.count; });
+      window.modeChartInstance.data.datasets[0].backgroundColor = md.map(function(d) { return modeColors[d.mode] || '#64748B'; });
+      window.modeChartInstance.update();
+    }
+  }
+  // Update motor status from latest sensor
+  if (d.latest_sensor) {
+    var s = d.latest_sensor;
+    var rpmEl = document.getElementById('motor-rpm');
+    if (rpmEl) rpmEl.textContent = s.motor_rpm || 0;
+    var speedEl = document.getElementById('motor-speed');
+    if (speedEl) speedEl.innerHTML = (s.serving_speed || 0) + '<span style="font-size:10px;color:var(--text-2);">km/h</span>';
+    var rtEl = document.getElementById('motor-runtime');
+    if (rtEl) rtEl.textContent = formatRuntime(s.runtime_seconds);
+    var errEl = document.getElementById('motor-errors');
+    if (errEl) { errEl.textContent = s.error_count || 0; errEl.style.color = (s.error_count || 0) > 0 ? 'var(--red)' : 'var(--green)'; }
+  }
 }
 
 async function loadDevices() {
@@ -1494,8 +1529,8 @@ async function loadUsers() {
       html += '<tr><td><div style="display:flex;align-items:center;gap:10px;">' +
         '<div style="width:32px;height:32px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">' + initial + '</div>' +
         '<div><div style="font-weight:500;">' + (u.username || '') + '</div><div style="font-size:11px;color:var(--text-2);">' + (u.email || '') + '</div></div></div></td>' +
-        '<td>' + levelBadge + '</td><td style="font-weight:600;">' + (u.total_sessions || '--') + '</td><td>' + (u.total_hours || '--') + '</td>' +
-        '<td style="color:var(--green);font-weight:600;">' + (u.avg_accuracy ? u.avg_accuracy + '%' : '--') + '</td><td>' + (u.last_training || '--') + '</td>' +
+        '<td>' + levelBadge + '</td><td style="font-weight:600;">' + (u.total_training_count || '--') + '</td><td>' + (u.total_training_hours ? u.total_training_hours.toFixed(1) + 'h' : '--') + '</td>' +
+        '<td style="color:var(--green);font-weight:600;">' + (u.avg_accuracy ? u.avg_accuracy + '%' : '--') + '</td><td>' + (u.last_training_date ? timeAgo(u.last_training_date) : '--') + '</td>' +
         '<td><button class="btn-outline" style="height:28px;padding:0 10px;font-size:11px;">\u7f16\u8f91</button></td></tr>';
     });
     tbody.innerHTML = html;
@@ -1515,6 +1550,31 @@ async function loadSettings() {
   if (el && s.default_duration != null) { el.value = s.default_duration; safeSetText('setting-duration-val', s.default_duration + ' \u5206\u949f'); }
   el = document.getElementById('setting-mqtt'); if (el && s.mqtt_broker) el.value = s.mqtt_broker;
   el = document.getElementById('setting-report-interval'); if (el && s.report_interval != null) el.value = s.report_interval;
+  // Load feature toggle states
+  var toggles = document.querySelectorAll('#page-settings .switch');
+  if (toggles.length >= 4) {
+    var toggleKeys = ['sound_enabled', 'auto_record', 'alert_enabled', 'power_saving'];
+    for (var ti = 0; ti < toggleKeys.length; ti++) {
+      var val = s[toggleKeys[ti]];
+      if (val !== undefined && val !== null) {
+        var isOn = val === true || val === 'true';
+        toggles[ti].className = 'switch ' + (isOn ? 'on' : 'off');
+      }
+    }
+  }
+  // Load system status
+  var sysResult = await apiFetch('/api/system/status');
+  if (sysResult && sysResult.code === 0 && sysResult.data) {
+    var sys = sysResult.data;
+    var aboutCard = document.querySelector('#page-settings .card:last-child .card-body');
+    if (aboutCard) {
+      var infoItems = aboutCard.querySelectorAll('div[style*="justify-content:space-between"]');
+      if (infoItems.length >= 5) {
+        infoItems[3].querySelector('span:last-child').textContent = formatRuntime(sys.uptime_seconds);
+        infoItems[4].querySelector('span:last-child').textContent = (sys.total_sensor_records || 0) + ' 条记录';
+      }
+    }
+  }
 }
 
 async function saveSettings() {
@@ -1552,7 +1612,6 @@ async function syncSettings() {
 
 async function loadAnalytics() {
   var statsResult = await apiFetch('/api/training/stats');
-  var historyResult = await apiFetch('/api/sensors/history?range=24h&limit=100');
   if (statsResult && statsResult.code === 0 && statsResult.data) {
     var d = statsResult.data;
     var el;
@@ -1564,22 +1623,40 @@ async function loadAnalytics() {
     el = document.getElementById('analytics-max-speed');
     if (el) el.innerHTML = (d.max_speed || 0) + '<span style="font-size:12px;font-weight:400;">km/h</span>';
   }
-  if (historyResult && historyResult.code === 0 && historyResult.data && historyResult.data.length > 0) {
-    var sensorData = historyResult.data;
-    var labels = sensorData.map(function(d) { return formatTime(d.timestamp); });
-    var tempData = sensorData.map(function(d) { return d.temperature; });
-    var humData = sensorData.map(function(d) { return d.humidity; });
+  // Fetch training trend for accuracy chart
+  var trendResult = await apiFetch('/api/training/trend?days=30');
+  if (trendResult && trendResult.code === 0 && trendResult.data && trendResult.data.length > 0) {
+    var trendData = trendResult.data;
+    var trendLabels = trendData.map(function(d) { return d.date ? d.date.substring(5) : ''; });
+    var accData = trendData.map(function(d) { return d.avg_accuracy ? Math.round(d.avg_accuracy) : 0; });
+    var durData = trendData.map(function(d) { return d.total_minutes ? Math.round(d.total_minutes / 60 * 10) / 10 : 0; });
     if (window.accChartInstance) {
-      window.accChartInstance.data.labels = labels;
-      window.accChartInstance.data.datasets[0].data = tempData;
-      window.accChartInstance.data.datasets[0].label = '\u6e29\u5ea6(\u00b0C)';
-      window.accChartInstance.data.datasets[0].borderColor = '#F59E0B';
+      window.accChartInstance.data.labels = trendLabels;
+      window.accChartInstance.data.datasets[0].data = accData;
+      window.accChartInstance.data.datasets[0].label = '命中率(%)';
+      window.accChartInstance.data.datasets[0].borderColor = '#8B5CF6';
       window.accChartInstance.update();
     }
+  }
+  // Fetch sensor history for speed distribution
+  var historyResult = await apiFetch('/api/sensors/history?range=24h&limit=100');
+  if (historyResult && historyResult.code === 0 && historyResult.data && historyResult.data.length > 0) {
+    var sensorData = historyResult.data;
+    var speedBins = {'60-70':0, '70-80':0, '80-90':0, '90-100':0, '100-110':0, '110+':0};
+    sensorData.forEach(function(d) {
+      if (d.serving_speed) {
+        var s = d.serving_speed;
+        if (s < 70) speedBins['60-70']++;
+        else if (s < 80) speedBins['70-80']++;
+        else if (s < 90) speedBins['80-90']++;
+        else if (s < 100) speedBins['90-100']++;
+        else if (s < 110) speedBins['100-110']++;
+        else speedBins['110+']++;
+      }
+    });
     if (window.speedChartInstance) {
-      window.speedChartInstance.data.labels = labels;
-      window.speedChartInstance.data.datasets[0].data = humData;
-      window.speedChartInstance.data.datasets[0].label = '\u6e7f\u5ea6(%)';
+      window.speedChartInstance.data.datasets[0].data = Object.values(speedBins);
+      window.speedChartInstance.data.datasets[0].label = '发球次数';
       window.speedChartInstance.update();
     }
   }
@@ -1593,13 +1670,14 @@ async function loadAnalytics() {
       trainResult.data.forEach(function(t) {
         var modeLabel = modeLabels[t.mode] || t.mode || '--';
         var modeBadge = modeBadges[t.mode] || 'badge-blue';
-        html += '<tr><td>' + (t.date || formatTime(t.created_at)) + '</td>' +
+        var score = t.score || (t.accuracy >= 90 ? 'A+' : t.accuracy >= 80 ? 'A' : t.accuracy >= 70 ? 'B+' : t.accuracy >= 60 ? 'B' : '--');
+        html += '<tr><td>' + formatTime(t.created_at) + '</td>' +
           '<td><span class="badge ' + modeBadge + '">' + modeLabel + '</span></td>' +
-          '<td>' + (t.duration || '--') + ' min</td>' +
-          '<td>' + (t.servings || '--') + '</td>' +
-          '<td style="color:var(--green);font-weight:600;">' + (t.accuracy || '--') + '%</td>' +
+          '<td>' + (t.duration_minutes || '--') + ' min</td>' +
+          '<td>' + (t.serving_count || '--') + '</td>' +
+          '<td style="color:var(--green);font-weight:600;">' + (t.accuracy ? Math.round(t.accuracy) + '%' : '--') + '</td>' +
           '<td>' + (t.max_speed || '--') + ' km/h</td>' +
-          '<td><span style="color:var(--yellow);font-weight:700;">' + (t.rating || '--') + '</span></td></tr>';
+          '<td><span style="color:var(--yellow);font-weight:700;">' + score + '</span></td></tr>';
       });
       tbody.innerHTML = html;
     }
@@ -1666,6 +1744,25 @@ async function sendTrainingParams() {
 
 async function controlLed(action) {
   await apiFetch('/api/control/led', { method: 'POST', body: JSON.stringify({ action: action }) });
+}
+
+async function loadTrainingState() {
+  var result = await apiFetch('/api/training/current');
+  if (result && result.code === 0 && result.data) {
+    var t = result.data;
+    // Update mode selection visual
+    if (t.mode) switchMode(t.mode);
+    // Update live chart with speed history
+    var liveResult = await apiFetch('/api/training/live');
+    if (liveResult && liveResult.code === 0 && liveResult.data && liveResult.data.speed_history) {
+      var hist = liveResult.data.speed_history;
+      if (window.liveChartInstance && hist.length > 0) {
+        window.liveChartInstance.data.labels = hist.map(function(d,i) { return i + 's'; });
+        window.liveChartInstance.data.datasets[0].data = hist.map(function(d) { return d.serving_speed || 0; });
+        window.liveChartInstance.update();
+      }
+    }
+  }
 }
 
 async function refreshSensorData() {
@@ -1762,6 +1859,24 @@ window.addEventListener('DOMContentLoaded', function() {
             tag.style.color = '#22C55E';
             tag.textContent = '\u2713 UWB OK: X=' + s.uwb_x.toFixed(2) + ' Y=' + s.uwb_y.toFixed(2);
           }
+
+          // Update motor status on dashboard
+          var rpmEl = document.getElementById('motor-rpm');
+          if (rpmEl) rpmEl.textContent = s.motor_rpm || 0;
+          var speedEl = document.getElementById('motor-speed');
+          if (speedEl) speedEl.innerHTML = (s.serving_speed || 0) + '<span style="font-size:10px;color:var(--text-2);">km/h</span>';
+          var rtEl = document.getElementById('motor-runtime');
+          if (rtEl) rtEl.textContent = formatRuntime(s.runtime_seconds);
+          var errEl = document.getElementById('motor-errors');
+          if (errEl) { errEl.textContent = s.error_count || 0; errEl.style.color = (s.error_count || 0) > 0 ? 'var(--red)' : 'var(--green)'; }
+
+          // Update court status panel
+          var csEl = document.getElementById('court-speed');
+          if (csEl && s.serving_speed != null) csEl.textContent = Math.round(s.serving_speed) + ' km/h';
+          var cscEl = document.getElementById('court-serving-count');
+          if (cscEl && s.serving_count != null) cscEl.textContent = s.serving_count;
+          var caEl = document.getElementById('court-accuracy');
+          if (caEl && s.accuracy != null) caEl.textContent = Math.round(s.accuracy) + '%';
         }
       })
       .catch(function(e) {
