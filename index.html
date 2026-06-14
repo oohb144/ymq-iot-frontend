@@ -1048,7 +1048,7 @@ let chartsInit = false;
 // 通过 URL 参数设置后端地址，例如: ?api=https://your-backend.up.railway.app
 // 默认使用 localhost 本地开发地址
 const _urlParams = new URLSearchParams(window.location.search);
-const API_BASE = _urlParams.get('api') || 'http://localhost:3000';
+const API_BASE = _urlParams.get('api') || 'https://ymq-backend-production.up.railway.app';
 console.log('[Config] API_BASE:', API_BASE);
 let authToken = null;
 let currentUser = null;
