@@ -658,21 +658,16 @@ body { font-family:'Noto Sans SC','Inter',system-ui,sans-serif; background:var(-
           <text x="72" y="548" text-anchor="middle" fill="#92400E" font-size="6">左后</text>
 
           <!-- ===== UWB测距连线 (基站→设备) ===== -->
-          <!-- 设备位置: (370, 430) -->
-          <line x1="72" y1="0" x2="370" y2="430" stroke="#F59E0B" stroke-width="1" stroke-dasharray="5,4" opacity="0.3"/>
-          <line x1="668" y1="0" x2="370" y2="430" stroke="#F59E0B" stroke-width="1" stroke-dasharray="5,4" opacity="0.3"/>
-          <line x1="668" y1="520" x2="370" y2="430" stroke="#F59E0B" stroke-width="1" stroke-dasharray="5,4" opacity="0.3"/>
-          <line x1="72" y1="520" x2="370" y2="430" stroke="#F59E0B" stroke-width="1" stroke-dasharray="5,4" opacity="0.3"/>
+          <line id="uwb-line-1" x1="72" y1="0" x2="370" y2="430" stroke="#F59E0B" stroke-width="1" stroke-dasharray="5,4" opacity="0.3"/>
+          <line id="uwb-line-2" x1="668" y1="0" x2="370" y2="430" stroke="#F59E0B" stroke-width="1" stroke-dasharray="5,4" opacity="0.3"/>
+          <line id="uwb-line-3" x1="668" y1="520" x2="370" y2="430" stroke="#F59E0B" stroke-width="1" stroke-dasharray="5,4" opacity="0.3"/>
+          <line id="uwb-line-4" x1="72" y1="520" x2="370" y2="430" stroke="#F59E0B" stroke-width="1" stroke-dasharray="5,4" opacity="0.3"/>
 
           <!-- 测距标注 (TOF距离) -->
-          <rect x="195" y="200" width="52" height="16" fill="rgba(11,17,32,0.8)" rx="3"/>
-          <text x="221" y="211" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="600">8.42m</text>
-          <rect x="494" y="200" width="52" height="16" fill="rgba(11,17,32,0.8)" rx="3"/>
-          <text x="520" y="211" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="600">7.85m</text>
-          <rect x="500" y="474" width="52" height="16" fill="rgba(11,17,32,0.8)" rx="3"/>
-          <text x="526" y="485" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="600">3.12m</text>
-          <rect x="190" y="474" width="52" height="16" fill="rgba(11,17,32,0.8)" rx="3"/>
-          <text x="216" y="485" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="600">3.95m</text>
+          <g id="uwb-dist-1"><rect x="195" y="200" width="52" height="16" fill="rgba(11,17,32,0.8)" rx="3"/><text id="uwb-dist-text-1" x="221" y="211" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="600">8.42m</text></g>
+          <g id="uwb-dist-2"><rect x="494" y="200" width="52" height="16" fill="rgba(11,17,32,0.8)" rx="3"/><text id="uwb-dist-text-2" x="520" y="211" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="600">7.85m</text></g>
+          <g id="uwb-dist-3"><rect x="500" y="474" width="52" height="16" fill="rgba(11,17,32,0.8)" rx="3"/><text id="uwb-dist-text-3" x="526" y="485" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="600">3.12m</text></g>
+          <g id="uwb-dist-4"><rect x="190" y="474" width="52" height="16" fill="rgba(11,17,32,0.8)" rx="3"/><text id="uwb-dist-text-4" x="216" y="485" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="600">3.95m</text></g>
           </g>
 
           <!-- ===== 目标落点区域 (对方半场) ===== -->
@@ -720,12 +715,14 @@ body { font-family:'Noto Sans SC','Inter',system-ui,sans-serif; background:var(-
           <circle cx="429" cy="80" r="5" fill="#8B5CF6" opacity="0.8"/>
           </g>
 
-          <!-- ===== 发球机 + UWB Tag ===== -->
-          <circle cx="370" cy="430" r="22" fill="none" stroke="var(--blue)" stroke-width="0.8" opacity="0.15"><animate attributeName="r" values="22;35;22" dur="3s" repeatCount="indefinite"/></circle>
-          <circle cx="370" cy="430" r="14" fill="rgba(59,130,246,0.15)" stroke="var(--blue)" stroke-width="1.5"/>
-          <circle cx="370" cy="430" r="6" fill="var(--blue)" filter="url(#glow)"/>
-          <text x="370" y="454" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700">ShuttleBot</text>
-          <text x="370" y="465" text-anchor="middle" fill="#FBBF24" font-size="7" font-weight="600">[ UWB Tag ]</text>
+          <!-- ===== 发球机 + UWB Tag (动态位置) ===== -->
+          <g id="device-marker">
+            <circle id="dev-pulse" cx="370" cy="430" r="22" fill="none" stroke="var(--blue)" stroke-width="0.8" opacity="0.15"><animate attributeName="r" values="22;35;22" dur="3s" repeatCount="indefinite"/></circle>
+            <circle id="dev-ring" cx="370" cy="430" r="14" fill="rgba(59,130,246,0.15)" stroke="var(--blue)" stroke-width="1.5"/>
+            <circle id="dev-dot" cx="370" cy="430" r="6" fill="var(--blue)" filter="url(#glow)"/>
+            <text id="dev-label" x="370" y="454" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700">ShuttleBot</text>
+            <text id="dev-sublabel" x="370" y="465" text-anchor="middle" fill="#FBBF24" font-size="7" font-weight="600">[ UWB Tag ]</text>
+          </g>
 
           <!-- 球员位置 -->
           <circle cx="250" cy="340" r="10" fill="rgba(236,72,153,0.12)"/>
@@ -1154,6 +1151,7 @@ function switchPage(pageId, navItem) {
   else if (pageId === 'settings') loadSettings();
   else if (pageId === 'analytics') loadAnalytics();
   else if (pageId === 'training') { /* training page uses real-time controls */ }
+  else if (pageId === 'court') { refreshSensorData(); }
 }
 
 function toggleSidebar() {
@@ -1218,6 +1216,92 @@ function initCharts() {
   });
 }
 // ===== Court Page Toggle Functions =====
+
+// UWB base station SVG positions (court corners, slightly outside)
+var BS = [
+  {x: 72, y: 0},     // BS-01 left-top
+  {x: 668, y: 0},    // BS-02 right-top
+  {x: 668, y: 520},  // BS-03 right-bottom
+  {x: 72, y: 520}    // BS-04 left-bottom
+];
+// Court SVG mapping: x=[120,620] for 0-6.1m, y=[40,480] for 0-13.4m
+var COURT_SCALE_X = 500 / 6.1;  // ~81.97 px/m
+var COURT_SCALE_Y = 440 / 13.4; // ~32.84 px/m
+var COURT_ORIGIN_X = 120;
+var COURT_ORIGIN_Y = 40;
+// SVG pixel-to-meter ratio for distance calc (approximate)
+var PX_TO_M = 0.0302; // 13.4m / 440px
+
+function uwbToSvg(uwbX, uwbY) {
+  var sx = COURT_ORIGIN_X + uwbX * COURT_SCALE_X;
+  var sy = COURT_ORIGIN_Y + uwbY * COURT_SCALE_Y;
+  // Clamp within court bounds
+  sx = Math.max(120, Math.min(620, sx));
+  sy = Math.max(40, Math.min(480, sy));
+  return {x: sx, y: sy};
+}
+
+function updateCourtPosition(uwbX, uwbY, uwbZ) {
+  var pos = uwbToSvg(uwbX, uwbY);
+  var sx = pos.x, sy = pos.y;
+
+  // Update device marker circles and text
+  var ids = ['dev-pulse','dev-ring','dev-dot'];
+  for (var i = 0; i < ids.length; i++) {
+    var el = document.getElementById(ids[i]);
+    if (el) { el.setAttribute('cx', sx); el.setAttribute('cy', sy); }
+  }
+  var lbl = document.getElementById('dev-label');
+  if (lbl) { lbl.setAttribute('x', sx); lbl.setAttribute('y', sy + 24); }
+  var sub = document.getElementById('dev-sublabel');
+  if (sub) { sub.setAttribute('x', sx); sub.setAttribute('y', sy + 35); }
+
+  // Update UWB lines and distance labels
+  for (var j = 0; j < 4; j++) {
+    var line = document.getElementById('uwb-line-' + (j+1));
+    if (line) {
+      line.setAttribute('x2', sx);
+      line.setAttribute('y2', sy);
+    }
+    // Calculate TOF distance (in meters)
+    var dx = (BS[j].x - sx) * PX_TO_M;
+    var dy = (BS[j].y - sy) * PX_TO_M;
+    var dist = Math.sqrt(dx*dx + dy*dy);
+    var distText = document.getElementById('uwb-dist-text-' + (j+1));
+    if (distText) {
+      distText.textContent = dist.toFixed(2) + 'm';
+    }
+    // Move distance label to midpoint of line
+    var distGroup = document.getElementById('uwb-dist-' + (j+1));
+    if (distGroup) {
+      var mx = (BS[j].x + sx) / 2;
+      var my = (BS[j].y + sy) / 2;
+      var rect = distGroup.querySelector('rect');
+      if (rect) {
+        rect.setAttribute('x', mx - 26);
+        rect.setAttribute('y', my - 8);
+      }
+      if (distText) {
+        distText.setAttribute('x', mx);
+        distText.setAttribute('y', my + 3);
+      }
+    }
+  }
+
+  // Update trajectory paths (from device to target zones)
+  var trajLayer = document.getElementById('trajectory-layer');
+  if (trajLayer) {
+    var paths = trajLayer.querySelectorAll('path');
+    var targets = [{x:199,y:215},{x:311,y:200},{x:429,y:80}];
+    for (var k = 0; k < paths.length && k < targets.length; k++) {
+      var t = targets[k];
+      var cpx = (sx + t.x) / 2 + (k === 0 ? -40 : k === 2 ? 40 : 0);
+      var cpy = (sy + t.y) / 2;
+      paths[k].setAttribute('d', 'M ' + sx + ' ' + sy + ' Q ' + cpx + ' ' + cpy + ' ' + t.x + ' ' + t.y);
+    }
+  }
+}
+
 function toggleLayer(layer) {
   var btnId = 'btn-' + layer;
   var btn = document.getElementById(btnId);
@@ -1589,6 +1673,9 @@ async function refreshSensorData() {
   if (s.uwb_x != null && s.uwb_y != null) {
     el = document.getElementById('uwb-coords');
     if (el) el.textContent = 'X:' + s.uwb_x.toFixed(2) + ' Y:' + s.uwb_y.toFixed(2) + (s.uwb_z != null ? ' Z:' + s.uwb_z.toFixed(2) : '');
+
+    // 更新球场 SVG 图中的设备位置
+    updateCourtPosition(s.uwb_x, s.uwb_y, s.uwb_z || 0);
   }
 }
 
