@@ -756,7 +756,7 @@ body { font-family:'Noto Sans SC','Inter',system-ui,sans-serif; background:var(-
           <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">发球速度</span><span style="font-size:13px;font-weight:700;">85 km/h</span></div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">已发球数</span><span style="font-size:13px;font-weight:700;">156</span></div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">综合命中率</span><span style="font-size:13px;font-weight:700;color:var(--green);">78%</span></div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;"><span style="font-size:12px;color:var(--text-2);">设备坐标</span><span style="font-size:11px;font-weight:600;font-family:monospace;color:var(--cyan);">X:3.28 Y:5.12</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">设备坐标</span><span id="uwb-coords" style="font-size:11px;font-weight:600;font-family:monospace;color:var(--cyan);">X:3.28 Y:5.12</span></div>
         </div>
       </div>
 
@@ -1015,6 +1015,7 @@ body { font-family:'Noto Sans SC','Inter',system-ui,sans-serif; background:var(-
           <select id="setting-discovery" class="input-field" style="cursor:pointer;"><option>mDNS (局域网)</option><option>MQTT Discovery</option><option>BLE Provisioning</option></select>
         </div>
         <button class="btn-primary" style="width:100%;height:38px;margin-top:8px;" onclick="saveSettings()">保存设置</button>
+        <button class="btn-outline" style="width:100%;height:38px;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="syncSettings()"><i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>同步到设备</button>
       </div>
     </div>
     <div class="card">
@@ -1433,8 +1434,22 @@ async function saveSettings() {
     settings.alert_enabled = toggles[2].classList.contains('on');
     settings.power_saving = toggles[3].classList.contains('on');
   }
-  var result = await apiFetch('/api/settings', { method: 'PUT', body: JSON.stringify(settings) });
-  if (result && result.code === 0) alert('\u8bbe\u7f6e\u5df2\u4fdd\u5b58');
+  var result = await apiFetch('/api/settings', { method: 'PUT', body: JSON.stringify({ settings: settings }) });
+  if (result && result.code === 0) {
+    var msg = result.message || '设置已保存';
+    alert('✓ ' + msg);
+  } else {
+    alert('保存失败: ' + (result ? result.message : '网络错误'));
+  }
+}
+
+async function syncSettings() {
+  var result = await apiFetch('/api/settings/sync', { method: 'POST' });
+  if (result && result.code === 0) {
+    alert('✓ 设置已同步下发到设备');
+  } else {
+    alert('同步失败: ' + (result ? result.message : '网络错误'));
+  }
 }
 
 async function loadAnalytics() {
@@ -1569,6 +1584,12 @@ async function refreshSensorData() {
   if (el) el.innerHTML = (s.humidity != null ? Math.round(s.humidity) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;">%</span>';
   el = document.getElementById('env-pressure');
   if (el) el.innerHTML = (s.pressure != null ? Math.round(s.pressure) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;"> hPa</span>';
+
+  // 更新 UWB 坐标显示
+  if (s.uwb_x != null && s.uwb_y != null) {
+    el = document.getElementById('uwb-coords');
+    if (el) el.textContent = 'X:' + s.uwb_x.toFixed(2) + ' Y:' + s.uwb_y.toFixed(2) + (s.uwb_z != null ? ' Z:' + s.uwb_z.toFixed(2) : '');
+  }
 }
 
 // 页面加载后自动登录
