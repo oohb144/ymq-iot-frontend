@@ -533,7 +533,8 @@ body { font-family:'Noto Sans SC','Inter',system-ui,sans-serif; background:var(-
 <div class="page-content">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
     <div><h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">球场定位与轨迹分析</h2><p style="font-size:13px;color:var(--text-2);">UWB超宽带定位系统 · 标准羽毛球场地实时追踪与落点分析</p></div>
-    <div style="display:flex;gap:8px;">
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div id="uwb-debug-tag" style="background:rgba(239,68,68,0.15);border:1px solid var(--red);border-radius:6px;padding:3px 10px;font-size:11px;font-family:monospace;color:var(--red);">UWB: 等待数据...</div>
       <div class="badge badge-green" style="font-size:12px;padding:4px 12px;display:flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);" class="pulse-dot"></span>UWB定位中</div>
       <button id="btn-fullscreen" class="btn-outline" style="height:30px;padding:0 12px;font-size:11px;cursor:pointer;" onclick="toggleFullscreen()"><i data-lucide="maximize-2" style="width:12px;height:12px;"></i> 全屏</button>
     </div>
@@ -551,7 +552,8 @@ body { font-family:'Noto Sans SC','Inter',system-ui,sans-serif; background:var(-
           <button id="btn-uwb" class="btn-outline" style="height:26px;padding:0 8px;font-size:10px;cursor:pointer;" onclick="toggleLayer('uwb')">UWB信号</button>
         </div>
       </div>
-      <div class="card-body" style="padding:12px;">
+      <div class="card-body" style="padding:12px;position:relative;">
+        <div id="uwb-status-bar" style="position:absolute;top:4px;right:16px;z-index:10;background:rgba(11,17,32,0.85);border:1px solid var(--cyan);border-radius:6px;padding:4px 10px;font-size:11px;font-family:monospace;color:var(--cyan);display:none;">UWB: waiting...</div>
         <svg viewBox="0 0 780 560" style="width:100%;height:auto;border-radius:8px;background:#0A2818;">
           <defs>
             <radialGradient id="uwbGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#F59E0B" stop-opacity="0.2"/><stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/></radialGradient>
@@ -1244,12 +1246,24 @@ function uwbToSvg(uwbX, uwbY) {
 function updateCourtPosition(uwbX, uwbY, uwbZ) {
   var pos = uwbToSvg(uwbX, uwbY);
   var sx = pos.x, sy = pos.y;
+  console.log('[UWB] SVG坐标映射: (' + uwbX + ',' + uwbY + ') → SVG(' + sx.toFixed(1) + ',' + sy.toFixed(1) + ')');
 
   // Update device marker circles and text
   var ids = ['dev-pulse','dev-ring','dev-dot'];
   for (var i = 0; i < ids.length; i++) {
     var el = document.getElementById(ids[i]);
     if (el) { el.setAttribute('cx', sx); el.setAttribute('cy', sy); }
+  }
+  // Make the dot green and bigger to show it's alive
+  var dot = document.getElementById('dev-dot');
+  if (dot) {
+    dot.setAttribute('fill', '#22C55E');
+    dot.setAttribute('r', '10');
+  }
+  var ring = document.getElementById('dev-ring');
+  if (ring) {
+    ring.setAttribute('stroke', '#22C55E');
+    ring.setAttribute('r', '18');
   }
   var lbl = document.getElementById('dev-label');
   if (lbl) { lbl.setAttribute('x', sx); lbl.setAttribute('y', sy + 24); }
@@ -1674,8 +1688,22 @@ async function refreshSensorData() {
     el = document.getElementById('uwb-coords');
     if (el) el.textContent = 'X:' + s.uwb_x.toFixed(2) + ' Y:' + s.uwb_y.toFixed(2) + (s.uwb_z != null ? ' Z:' + s.uwb_z.toFixed(2) : '');
 
+    console.log('[UWB] 收到定位数据: X=' + s.uwb_x.toFixed(2) + ' Y=' + s.uwb_y.toFixed(2) + ' Z=' + (s.uwb_z != null ? s.uwb_z.toFixed(2) : 'null'));
+
+    // 更新 UWB 状态横幅
+    var bar = document.getElementById('uwb-status-bar');
+    if (bar) {
+      bar.style.display = 'block';
+      bar.style.borderColor = '#22C55E';
+      bar.style.color = '#22C55E';
+      bar.textContent = 'UWB OK → X:' + s.uwb_x.toFixed(2) + ' Y:' + s.uwb_y.toFixed(2) + ' SVG(' + uwbToSvg(s.uwb_x, s.uwb_y).x.toFixed(0) + ',' + uwbToSvg(s.uwb_x, s.uwb_y).y.toFixed(0) + ')';
+    }
+
     // 更新球场 SVG 图中的设备位置
     updateCourtPosition(s.uwb_x, s.uwb_y, s.uwb_z || 0);
+    console.log('[UWB] 球场设备位置已更新');
+  } else {
+    console.log('[UWB] 传感器数据无UWB字段:', JSON.stringify(s));
   }
 }
 
@@ -1683,6 +1711,65 @@ async function refreshSensorData() {
 window.addEventListener('DOMContentLoaded', function() {
   console.log('[Init] 页面加载完成，3秒后自动登录...');
   setTimeout(function() { doLogin(); }, 3000);
+
+  // 独立启动传感器轮询（不依赖登录）
+  console.log('[Init] 传感器轮询已启动 (每5秒)');
+  setInterval(function() {
+    // 直接用 fetch 绕过 apiFetch，不需要 auth token
+    var apiUrl = (new URLSearchParams(window.location.search)).get('api') || 'https://ymq-backend-production.up.railway.app';
+    fetch(apiUrl + '/api/sensors/latest', { signal: AbortSignal.timeout(10000) })
+      .then(function(r) { return r.json(); })
+      .then(function(result) {
+        if (!result || result.code !== 0 || !result.data || !result.data.sensor) {
+          console.log('[Poll] API返回无效数据:', result);
+          return;
+        }
+        var s = result.data.sensor;
+        console.log('[Poll] 传感器数据:', JSON.stringify(s));
+
+        // 更新环境数据
+        var el;
+        el = document.getElementById('env-wind');
+        if (el) el.innerHTML = (s.wind_speed != null ? s.wind_speed.toFixed(1) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;"> m/s</span>';
+        el = document.getElementById('env-temp');
+        if (el) el.innerHTML = (s.temperature != null ? s.temperature.toFixed(1) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;"> \u00b0C</span>';
+        el = document.getElementById('env-humidity');
+        if (el) el.innerHTML = (s.humidity != null ? Math.round(s.humidity) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;">%</span>';
+        el = document.getElementById('env-pressure');
+        if (el) el.innerHTML = (s.pressure != null ? Math.round(s.pressure) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;"> hPa</span>';
+
+        if (s.uwb_x != null && s.uwb_y != null) {
+          el = document.getElementById('uwb-coords');
+          if (el) el.textContent = 'X:' + s.uwb_x.toFixed(2) + ' Y:' + s.uwb_y.toFixed(2) + (s.uwb_z != null ? ' Z:' + s.uwb_z.toFixed(2) : '');
+
+          // 更新 UWB 状态横幅
+          var bar = document.getElementById('uwb-status-bar');
+          if (bar) {
+            bar.style.display = 'block';
+            bar.style.borderColor = '#22C55E';
+            bar.style.color = '#22C55E';
+            var p = uwbToSvg(s.uwb_x, s.uwb_y);
+            bar.textContent = '\u2713 UWB X:' + s.uwb_x.toFixed(2) + ' Y:' + s.uwb_y.toFixed(2) + ' \u2192 SVG(' + p.x.toFixed(0) + ',' + p.y.toFixed(0) + ')';
+          }
+
+          updateCourtPosition(s.uwb_x, s.uwb_y, s.uwb_z || 0);
+
+          // 更新调试标签为绿色
+          var tag = document.getElementById('uwb-debug-tag');
+          if (tag) {
+            tag.style.background = 'rgba(34,197,94,0.15)';
+            tag.style.borderColor = '#22C55E';
+            tag.style.color = '#22C55E';
+            tag.textContent = '\u2713 UWB OK: X=' + s.uwb_x.toFixed(2) + ' Y=' + s.uwb_y.toFixed(2);
+          }
+        }
+      })
+      .catch(function(e) {
+        console.log('[Poll] fetch失败:', e.message);
+        var tag = document.getElementById('uwb-debug-tag');
+        if (tag) { tag.textContent = 'X API错误: ' + e.message; }
+      });
+  }, 5000);
 });
 </script>
 </body>
