@@ -1,0 +1,1568 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能羽毛球陪练系统 - 云平台</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+:root {
+  --bg-0: #06080F; --bg-1: #0B1120; --bg-2: #111B2E; --bg-3: #162036;
+  --bg-card: #131C30; --border: #1E3050; --border-hover: #2A4060;
+  --blue: #3B82F6; --cyan: #06B6D4; --green: #22C55E; --red: #EF4444;
+  --yellow: #F59E0B; --purple: #8B5CF6; --pink: #EC4899;
+  --text-0: #F1F5F9; --text-1: #CBD5E1; --text-2: #64748B; --text-3: #475569;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Noto Sans SC','Inter',system-ui,sans-serif; background:var(--bg-0); color:var(--text-0); overflow-x:hidden; }
+::-webkit-scrollbar { width:6px; } ::-webkit-scrollbar-track { background:var(--bg-1); } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+/* Sidebar */
+.sidebar { width:220px; min-width:220px; height:100vh; background:var(--bg-1); border-right:1px solid var(--border); display:flex; flex-direction:column; transition:all .3s; position:fixed; left:0; top:0; z-index:50; }
+.sidebar.collapsed { width:64px; min-width:64px; }
+.sidebar.collapsed .sidebar-label, .sidebar.collapsed .sidebar-brand-text, .sidebar.collapsed .sidebar-footer-text { display:none; }
+.sidebar-nav-item { display:flex; align-items:center; gap:12px; padding:10px 16px; cursor:pointer; color:var(--text-2); font-size:13px; transition:all .2s; border-left:3px solid transparent; margin:1px 0; }
+.sidebar-nav-item:hover { background:var(--bg-2); color:var(--text-1); }
+.sidebar-nav-item.active { background:rgba(59,130,246,0.08); color:var(--blue); border-left-color:var(--blue); }
+.sidebar-section { font-size:10px; font-weight:600; color:var(--text-3); padding:16px 16px 6px; text-transform:uppercase; letter-spacing:1.5px; }
+
+/* Main */
+.main-wrap { margin-left:220px; min-height:100vh; width:calc(100vw - 220px); display:flex; flex-direction:column; }
+.top-header { height:56px; background:var(--bg-1); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 24px; gap:16px; position:sticky; top:0; z-index:40; }
+.page-content { flex:1; padding:20px 24px; }
+
+/* Cards */
+.card { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; transition:border-color .2s; }
+.card:hover { border-color:var(--border-hover); }
+.card-header { padding:16px 20px 0; display:flex; align-items:center; justify-content:space-between; }
+.card-body { padding:16px 20px 20px; }
+
+/* KPI */
+.kpi-card { position:relative; overflow:hidden; }
+.kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; border-radius:12px 12px 0 0; }
+.kpi-blue::before { background:var(--blue); }
+.kpi-cyan::before { background:var(--cyan); }
+.kpi-green::before { background:var(--green); }
+.kpi-yellow::before { background:var(--yellow); }
+.kpi-purple::before { background:var(--purple); }
+.kpi-red::before { background:var(--red); }
+
+/* Badge */
+.badge { font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; }
+.badge-green { background:rgba(34,197,94,0.15); color:#4ade80; }
+.badge-red { background:rgba(239,68,68,0.15); color:#fca5a5; }
+.badge-blue { background:rgba(59,130,246,0.15); color:#93c5fd; }
+.badge-yellow { background:rgba(245,158,11,0.15); color:#fde68a; }
+.badge-purple { background:rgba(139,92,246,0.15); color:#c4b5fd; }
+
+/* Table */
+.data-table { width:100%; border-collapse:separate; border-spacing:0; }
+.data-table th { font-size:11px; font-weight:600; color:var(--text-2); text-align:left; padding:10px 14px; border-bottom:1px solid var(--border); text-transform:uppercase; letter-spacing:.5px; }
+.data-table td { font-size:13px; padding:12px 14px; border-bottom:1px solid rgba(30,48,80,0.5); color:var(--text-1); }
+.data-table tr:hover td { background:rgba(59,130,246,0.03); }
+
+/* Toggle */
+.switch { width:44px; height:24px; border-radius:12px; cursor:pointer; position:relative; transition:background .2s; }
+.switch.on { background:var(--blue); } .switch.off { background:var(--text-3); }
+.switch .knob { width:20px; height:20px; border-radius:50%; background:#fff; position:absolute; top:2px; transition:left .2s; }
+.switch.on .knob { left:22px; } .switch.off .knob { left:2px; }
+
+/* Animations */
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+.fade-up { animation:fadeUp .4s ease forwards; }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+.pulse-dot { animation:pulse-dot 2s ease infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.spin { animation:spin 1.5s linear infinite; }
+
+/* Page transitions */
+.page { display:none; } .page.active { display:block; }
+
+/* Chart container */
+.chart-wrap { position:relative; }
+.chart-wrap>div { position:relative !important; }
+
+/* Login */
+.login-bg { background:linear-gradient(135deg,#06080F 0%,#0B1120 40%,#111B2E 100%); min-height:100vh; }
+.login-card { background:rgba(17,27,46,0.8); border:1px solid var(--border); border-radius:16px; backdrop-filter:blur(20px); }
+.input-field { width:100%; height:44px; background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:0 14px; color:var(--text-0); font-size:14px; outline:none; transition:border-color .2s; }
+.input-field:focus { border-color:var(--blue); }
+.btn-primary { background:var(--blue); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; }
+.btn-primary:hover { background:#2563EB; transform:translateY(-1px); }
+.btn-outline { background:transparent; border:1px solid var(--border); color:var(--text-1); border-radius:8px; font-size:13px; cursor:pointer; transition:all .2s; }
+.btn-outline:hover { border-color:var(--text-2); background:var(--bg-2); }
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN PAGE ===== -->
+<div id="loginPage" class="login-bg" style="display:flex;align-items:center;justify-content:center;">
+<div style="width:100%;max-width:900px;display:flex;gap:60px;align-items:center;padding:40px;">
+  <!-- Left Branding -->
+  <div style="flex:1;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:40px;">
+      <div style="width:48px;height:48px;border-radius:14px;background:var(--blue);display:flex;align-items:center;justify-content:center;">
+        <i data-lucide="activity" style="width:24px;height:24px;color:#fff;"></i>
+      </div>
+      <div><div style="font-size:20px;font-weight:700;letter-spacing:-.3px;">ShuttleBot</div><div style="font-size:11px;color:var(--text-2);letter-spacing:2px;text-transform:uppercase;">Cloud Platform</div></div>
+    </div>
+    <h1 style="font-size:36px;font-weight:800;letter-spacing:-.5px;line-height:1.2;margin-bottom:16px;">智能羽毛球<br>陪练管理平台</h1>
+    <p style="font-size:15px;color:var(--text-2);line-height:1.6;margin-bottom:32px;">远程监控设备状态、分析训练数据、管理用户与设备配置，一切尽在云端。</p>
+    <div style="display:flex;gap:24px;">
+      <div style="display:flex;align-items:center;gap:8px;"><div class="badge badge-green">实时</div><span style="font-size:12px;color:var(--text-2);">设备监控</span></div>
+      <div style="display:flex;align-items:center;gap:8px;"><div class="badge badge-blue">AI</div><span style="font-size:12px;color:var(--text-2);">智能分析</span></div>
+      <div style="display:flex;align-items:center;gap:8px;"><div class="badge badge-purple">云端</div><span style="font-size:12px;color:var(--text-2);">数据同步</span></div>
+    </div>
+  </div>
+  <!-- Right Login -->
+  <div class="login-card" style="width:380px;padding:36px;">
+    <h2 style="font-size:22px;font-weight:700;margin-bottom:4px;">欢迎回来</h2>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:28px;">登录您的云平台账户</p>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px;">邮箱地址</label>
+      <input id="loginEmail" class="input-field" type="email" value="admin@shuttlebot.com" placeholder="your@email.com">
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px;">密码</label>
+      <input id="loginPassword" class="input-field" type="password" value="admin123" placeholder="输入密码">
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);cursor:pointer;">
+        <input type="checkbox" checked style="accent-color:var(--blue);"> 记住登录
+      </label>
+      <a href="#" style="font-size:12px;color:var(--blue);text-decoration:none;">忘记密码?</a>
+    </div>
+    <button class="btn-primary" style="width:100%;height:44px;margin-bottom:16px;" onclick="doLogin()">登 录</button>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+      <div style="flex:1;height:1px;background:var(--border);"></div><span style="font-size:11px;color:var(--text-3);">或使用</span><div style="flex:1;height:1px;background:var(--border);"></div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-outline" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;gap:6px;"><i data-lucide="chrome" style="width:16px;height:16px;"></i>Google</button>
+      <button class="btn-outline" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;gap:6px;"><i data-lucide="github" style="width:16px;height:16px;"></i>GitHub</button>
+      <button class="btn-outline" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;gap:6px;"><i data-lucide="smartphone" style="width:16px;height:16px;"></i>微信</button>
+    </div>
+    <p style="text-align:center;font-size:12px;color:var(--text-2);margin-top:24px;">还没有账户? <a href="#" style="color:var(--blue);text-decoration:none;font-weight:500;">立即注册</a></p>
+  </div>
+</div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div id="mainApp" style="display:none;">
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div style="padding:16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);">
+    <div style="width:36px;height:36px;border-radius:10px;background:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <i data-lucide="activity" style="width:18px;height:18px;color:#fff;"></i>
+    </div>
+    <div class="sidebar-brand-text"><div style="font-size:15px;font-weight:700;">ShuttleBot</div><div style="font-size:10px;color:var(--text-2);">Cloud v2.1</div></div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:8px 0;">
+    <div class="sidebar-section sidebar-label">概览</div>
+    <div class="sidebar-nav-item active" onclick="switchPage('dashboard',this)"><i data-lucide="layout-grid" style="width:18px;height:18px;"></i><span class="sidebar-label">控制台</span></div>
+    <div class="sidebar-section sidebar-label">监控</div>
+    <div class="sidebar-nav-item" onclick="switchPage('device',this)"><i data-lucide="cpu" style="width:18px;height:18px;"></i><span class="sidebar-label">设备管理</span></div>
+    <div class="sidebar-nav-item" onclick="switchPage('training',this)"><i data-lucide="dumbbell" style="width:18px;height:18px;"></i><span class="sidebar-label">训练中心</span></div>
+    <div class="sidebar-nav-item" onclick="switchPage('court',this)"><i data-lucide="map-pin" style="width:18px;height:18px;"></i><span class="sidebar-label">球场定位</span></div>
+    <div class="sidebar-section sidebar-label">数据</div>
+    <div class="sidebar-nav-item" onclick="switchPage('analytics',this)"><i data-lucide="bar-chart-3" style="width:18px;height:18px;"></i><span class="sidebar-label">数据分析</span></div>
+    <div class="sidebar-nav-item" onclick="switchPage('alerts',this)"><i data-lucide="bell" style="width:18px;height:18px;"></i><span class="sidebar-label">告警日志</span></div>
+    <div class="sidebar-section sidebar-label">管理</div>
+    <div class="sidebar-nav-item" onclick="switchPage('users',this)"><i data-lucide="users" style="width:18px;height:18px;"></i><span class="sidebar-label">用户管理</span></div>
+    <div class="sidebar-nav-item" onclick="switchPage('settings',this)"><i data-lucide="settings" style="width:18px;height:18px;"></i><span class="sidebar-label">系统设置</span></div>
+  </div>
+  <div style="padding:12px 16px;border-top:1px solid var(--border);">
+    <div class="sidebar-nav-item" style="padding:8px 0;" onclick="logout()">
+      <i data-lucide="log-out" style="width:18px;height:18px;color:var(--red);"></i><span class="sidebar-label" style="color:var(--red);">退出登录</span>
+    </div>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="main-wrap">
+<!-- Top Header -->
+<div class="top-header">
+  <button onclick="toggleSidebar()" style="background:none;border:none;color:var(--text-2);cursor:pointer;padding:4px;"><i data-lucide="menu" style="width:20px;height:20px;"></i></button>
+  <div id="pageTitle" style="font-size:16px;font-weight:600;">控制台</div>
+  <div style="flex:1;"></div>
+  <!-- Search -->
+  <div style="position:relative;width:240px;">
+    <i data-lucide="search" style="position:absolute;left:10px;top:11px;width:16px;height:16px;color:var(--text-3);"></i>
+    <input style="width:100%;height:36px;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:0 12px 0 32px;color:var(--text-0);font-size:13px;outline:none;" placeholder="搜索设备、用户...">
+  </div>
+  <!-- Notifications -->
+  <div style="position:relative;cursor:pointer;padding:6px;" onclick="switchPage('alerts',document.querySelector('.sidebar-nav-item:nth-child(10)'))">
+    <i data-lucide="bell" style="width:18px;height:18px;color:var(--text-2);"></i>
+    <div style="position:absolute;top:4px;right:4px;width:8px;height:8px;background:var(--red);border-radius:50%;border:2px solid var(--bg-1);"></div>
+  </div>
+  <!-- User -->
+  <div style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 8px;border-radius:8px;" onclick="switchPage('settings',null)">
+    <div id="user-avatar" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">陈</div>
+    <div><div id="user-name" style="font-size:13px;font-weight:500;">陈宇豪</div><div id="user-role" style="font-size:10px;color:var(--text-2);">管理员</div></div>
+  </div>
+</div>
+
+<!-- ===== PAGE: DASHBOARD ===== -->
+<div id="page-dashboard" class="page active">
+<div class="page-content">
+  <!-- KPI Row -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:20px;">
+    <div class="card kpi-card kpi-blue fade-up">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:12px;color:var(--text-2);">在线设备</span>
+          <div style="width:32px;height:32px;border-radius:8px;background:rgba(59,130,246,0.1);display:flex;align-items:center;justify-content:center;"><i data-lucide="cpu" style="width:16px;height:16px;color:var(--blue);"></i></div>
+        </div>
+        <div id="kpi-online-devices" style="font-size:28px;font-weight:800;letter-spacing:-.5px;">3</div>
+        <div style="font-size:11px;color:var(--green);margin-top:4px;display:flex;align-items:center;gap:4px;"><i data-lucide="trending-up" style="width:12px;height:12px;"></i>全部在线</div>
+      </div>
+    </div>
+    <div class="card kpi-card kpi-green fade-up" style="animation-delay:.05s;">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:12px;color:var(--text-2);">今日训练</span>
+          <div style="width:32px;height:32px;border-radius:8px;background:rgba(34,197,94,0.1);display:flex;align-items:center;justify-content:center;"><i data-lucide="timer" style="width:16px;height:16px;color:var(--green);"></i></div>
+        </div>
+        <div id="kpi-today-training" style="font-size:28px;font-weight:800;letter-spacing:-.5px;">4.5<span style="font-size:14px;font-weight:400;color:var(--text-2);">h</span></div>
+        <div style="font-size:11px;color:var(--green);margin-top:4px;display:flex;align-items:center;gap:4px;"><i data-lucide="trending-up" style="width:12px;height:12px;"></i>+12% 较昨日</div>
+      </div>
+    </div>
+    <div class="card kpi-card kpi-cyan fade-up" style="animation-delay:.1s;">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:12px;color:var(--text-2);">总发球数</span>
+          <div style="width:32px;height:32px;border-radius:8px;background:rgba(6,182,212,0.1);display:flex;align-items:center;justify-content:center;"><i data-lucide="target" style="width:16px;height:16px;color:var(--cyan);"></i></div>
+        </div>
+        <div id="kpi-total-servings" style="font-size:28px;font-weight:800;letter-spacing:-.5px;">3,842</div>
+        <div style="font-size:11px;color:var(--green);margin-top:4px;display:flex;align-items:center;gap:4px;"><i data-lucide="trending-up" style="width:12px;height:12px;"></i>+856 本周</div>
+      </div>
+    </div>
+    <div class="card kpi-card kpi-purple fade-up" style="animation-delay:.15s;">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:12px;color:var(--text-2);">平均命中率</span>
+          <div style="width:32px;height:32px;border-radius:8px;background:rgba(139,92,246,0.1);display:flex;align-items:center;justify-content:center;"><i data-lucide="crosshair" style="width:16px;height:16px;color:var(--purple);"></i></div>
+        </div>
+        <div id="kpi-avg-accuracy" style="font-size:28px;font-weight:800;letter-spacing:-.5px;">78<span style="font-size:14px;font-weight:400;color:var(--text-2);">%</span></div>
+        <div style="font-size:11px;color:var(--green);margin-top:4px;display:flex;align-items:center;gap:4px;"><i data-lucide="trending-up" style="width:12px;height:12px;"></i>+3% 提升</div>
+      </div>
+    </div>
+    <div class="card kpi-card kpi-yellow fade-up" style="animation-delay:.2s;">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:12px;color:var(--text-2);">告警次数</span>
+          <div style="width:32px;height:32px;border-radius:8px;background:rgba(245,158,11,0.1);display:flex;align-items:center;justify-content:center;"><i data-lucide="alert-triangle" style="width:16px;height:16px;color:var(--yellow);"></i></div>
+        </div>
+        <div id="kpi-alerts-count" style="font-size:28px;font-weight:800;letter-spacing:-.5px;">2</div>
+        <div style="font-size:11px;color:var(--yellow);margin-top:4px;display:flex;align-items:center;gap:4px;"><i data-lucide="clock" style="width:12px;height:12px;"></i>最近 2h 前</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px;">
+    <div class="card">
+      <div class="card-header">
+        <div style="font-size:14px;font-weight:600;">训练趋势</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-outline" style="height:28px;padding:0 10px;font-size:11px;">7天</button>
+          <button class="btn-outline" style="height:28px;padding:0 10px;font-size:11px;background:var(--bg-2);border-color:var(--blue);color:var(--blue);">30天</button>
+          <button class="btn-outline" style="height:28px;padding:0 10px;font-size:11px;">90天</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap"><div style="height:240px;"><canvas id="trendChart"></canvas></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div style="font-size:14px;font-weight:600;">模式分布</div></div>
+      <div class="card-body">
+        <div class="chart-wrap"><div style="height:200px;"><canvas id="modeChart"></canvas></div></div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;">
+            <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;border-radius:2px;background:var(--blue);"></div>定点发球</div><span style="color:var(--text-1);font-weight:600;">45%</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;">
+            <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;border-radius:2px;background:var(--green);"></div>自主训练</div><span style="color:var(--text-1);font-weight:600;">30%</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;">
+            <div style="display:flex;align-items:center;gap:6px;"><div style="width:8px;height:8px;border-radius:2px;background:var(--yellow);"></div>步伐训练</div><span style="color:var(--text-1);font-weight:600;">25%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Row -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+    <!-- Environment -->
+    <div class="card">
+      <div class="card-header"><div style="font-size:14px;font-weight:600;">环境数据</div><div class="badge badge-green">实时</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div style="background:var(--bg-2);border-radius:8px;padding:12px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><i data-lucide="wind" style="width:14px;height:14px;color:var(--cyan);"></i><span style="font-size:11px;color:var(--text-2);">风速</span></div>
+            <div id="env-wind" style="font-size:22px;font-weight:700;">2.3<span style="font-size:12px;color:var(--text-2);font-weight:400;"> m/s</span></div>
+          </div>
+          <div style="background:var(--bg-2);border-radius:8px;padding:12px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><i data-lucide="thermometer" style="width:14px;height:14px;color:var(--yellow);"></i><span style="font-size:11px;color:var(--text-2);">温度</span></div>
+            <div id="env-temp" style="font-size:22px;font-weight:700;">26.5<span style="font-size:12px;color:var(--text-2);font-weight:400;">°C</span></div>
+          </div>
+          <div style="background:var(--bg-2);border-radius:8px;padding:12px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><i data-lucide="droplets" style="width:14px;height:14px;color:var(--blue);"></i><span style="font-size:11px;color:var(--text-2);">湿度</span></div>
+            <div id="env-humidity" style="font-size:22px;font-weight:700;">58<span style="font-size:12px;color:var(--text-2);font-weight:400;">%</span></div>
+          </div>
+          <div style="background:var(--bg-2);border-radius:8px;padding:12px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><i data-lucide="gauge" style="width:14px;height:14px;color:var(--purple);"></i><span style="font-size:11px;color:var(--text-2);">气压</span></div>
+            <div id="env-pressure" style="font-size:22px;font-weight:700;">1013<span style="font-size:12px;color:var(--text-2);font-weight:400;"> hPa</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Motor -->
+    <div class="card">
+      <div class="card-header"><div style="font-size:14px;font-weight:600;">电机状态</div><div class="badge badge-green">正常</div></div>
+      <div class="card-body">
+        <div style="text-align:center;margin-bottom:16px;">
+          <div id="motor-rpm" style="font-size:36px;font-weight:800;color:var(--purple);letter-spacing:-1px;">2450</div>
+          <div style="font-size:12px;color:var(--text-2);">RPM · 当前转速</div>
+          <div style="height:6px;background:var(--bg-2);border-radius:3px;margin-top:10px;"><div style="height:100%;width:72%;background:var(--purple);border-radius:3px;"></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <div style="text-align:center;"><div style="font-size:10px;color:var(--text-2);">发球速度</div><div id="motor-speed" style="font-size:16px;font-weight:700;">85<span style="font-size:10px;color:var(--text-2);">km/h</span></div></div>
+          <div style="text-align:center;"><div style="font-size:10px;color:var(--text-2);">运行时长</div><div id="motor-runtime" style="font-size:16px;font-weight:700;">01:23</div></div>
+          <div style="text-align:center;"><div style="font-size:10px;color:var(--text-2);">异常次数</div><div id="motor-errors" style="font-size:16px;font-weight:700;color:var(--green);">0</div></div>
+        </div>
+      </div>
+    </div>
+    <!-- Recent Alerts -->
+    <div class="card">
+      <div class="card-header"><div style="font-size:14px;font-weight:600;">最近告警</div><a href="#" onclick="switchPage('alerts',null)" style="font-size:12px;color:var(--blue);text-decoration:none;">查看全部</a></div>
+      <div id="dashboard-recent-alerts" class="card-body" style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.1);border-radius:8px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;" class="pulse-dot"></div>
+          <div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:500;">电机过热警告</div><div style="font-size:11px;color:var(--text-2);">设备#001 · 2小时前</div></div>
+          <span class="badge badge-red">严重</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.1);border-radius:8px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--yellow);flex-shrink:0;" class="pulse-dot"></div>
+          <div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:500;">WiFi信号弱</div><div style="font-size:11px;color:var(--text-2);">设备#002 · 5小时前</div></div>
+          <span class="badge badge-yellow">警告</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.1);border-radius:8px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;"></div>
+          <div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:500;">固件更新完成</div><div style="font-size:11px;color:var(--text-2);">设备#001 · 1天前</div></div>
+          <span class="badge badge-green">完成</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ===== PAGE: DEVICE ===== -->
+<div id="page-device" class="page">
+<div class="page-content">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div><h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">设备管理</h2><p style="font-size:13px;color:var(--text-2);">监控和管理所有连接的陪练设备</p></div>
+    <button class="btn-primary" style="height:38px;padding:0 20px;display:flex;align-items:center;gap:6px;"><i data-lucide="plus" style="width:16px;height:16px;"></i>添加设备</button>
+  </div>
+  <!-- Device Cards -->
+  <div id="device-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;">
+    <div class="card" style="border-left:3px solid var(--green);">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(34,197,94,0.1);display:flex;align-items:center;justify-content:center;"><i data-lucide="cpu" style="width:20px;height:20px;color:var(--green);"></i></div>
+            <div><div style="font-size:14px;font-weight:600;">ShuttleBot-001</div><div style="font-size:11px;color:var(--text-2);">SN: SB2024001</div></div>
+          </div>
+          <div class="badge badge-green">在线</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+          <div><span style="color:var(--text-2);">固件</span><br><span style="font-weight:600;">v2.1.0</span></div>
+          <div><span style="color:var(--text-2);">电量</span><br><span style="font-weight:600;color:var(--green);">86%</span></div>
+          <div><span style="color:var(--text-2);">运行时长</span><br><span style="font-weight:600;">1h 23m</span></div>
+          <div><span style="color:var(--text-2);">最后同步</span><br><span style="font-weight:600;">刚刚</span></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:14px;">
+          <button class="btn-outline" style="flex:1;height:32px;font-size:11px;">详情</button>
+          <button class="btn-outline" style="flex:1;height:32px;font-size:11px;">远程控制</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="border-left:3px solid var(--green);">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(34,197,94,0.1);display:flex;align-items:center;justify-content:center;"><i data-lucide="cpu" style="width:20px;height:20px;color:var(--green);"></i></div>
+            <div><div style="font-size:14px;font-weight:600;">ShuttleBot-002</div><div style="font-size:11px;color:var(--text-2);">SN: SB2024002</div></div>
+          </div>
+          <div class="badge badge-green">在线</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+          <div><span style="color:var(--text-2);">固件</span><br><span style="font-weight:600;">v2.1.0</span></div>
+          <div><span style="color:var(--text-2);">电量</span><br><span style="font-weight:600;color:var(--green);">92%</span></div>
+          <div><span style="color:var(--text-2);">运行时长</span><br><span style="font-weight:600;">0h 45m</span></div>
+          <div><span style="color:var(--text-2);">最后同步</span><br><span style="font-weight:600;">1分钟前</span></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:14px;">
+          <button class="btn-outline" style="flex:1;height:32px;font-size:11px;">详情</button>
+          <button class="btn-outline" style="flex:1;height:32px;font-size:11px;">远程控制</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="border-left:3px solid var(--text-3);">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(71,85,105,0.2);display:flex;align-items:center;justify-content:center;"><i data-lucide="cpu" style="width:20px;height:20px;color:var(--text-3);"></i></div>
+            <div><div style="font-size:14px;font-weight:600;">ShuttleBot-003</div><div style="font-size:11px;color:var(--text-2);">SN: SB2024003</div></div>
+          </div>
+          <div class="badge" style="background:rgba(71,85,105,0.15);color:var(--text-2);">离线</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+          <div><span style="color:var(--text-2);">固件</span><br><span style="font-weight:600;">v2.0.8</span></div>
+          <div><span style="color:var(--text-2);">电量</span><br><span style="font-weight:600;color:var(--text-2);">--</span></div>
+          <div><span style="color:var(--text-2);">运行时长</span><br><span style="font-weight:600;">--</span></div>
+          <div><span style="color:var(--text-2);">最后同步</span><br><span style="font-weight:600;color:var(--text-2);">3天前</span></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:14px;">
+          <button class="btn-outline" style="flex:1;height:32px;font-size:11px;">详情</button>
+          <button class="btn-outline" style="flex:1;height:32px;font-size:11px;opacity:.5;" disabled>远程控制</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Device Table -->
+  <div class="card">
+    <div class="card-header"><div style="font-size:14px;font-weight:600;">设备运行日志</div></div>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>时间</th><th>设备</th><th>事件</th><th>类型</th><th>详情</th></tr></thead>
+        <tbody id="device-log-body">
+          <tr><td style="font-family:monospace;font-size:12px;">14:32:15</td><td>SB-001</td><td>训练开始</td><td><span class="badge badge-blue">信息</span></td><td style="color:var(--text-2);">定点发球模式启动</td></tr>
+          <tr><td style="font-family:monospace;font-size:12px;">14:28:03</td><td>SB-002</td><td>电机转速异常</td><td><span class="badge badge-yellow">警告</span></td><td style="color:var(--text-2);">RPM短暂超过3000</td></tr>
+          <tr><td style="font-family:monospace;font-size:12px;">14:15:42</td><td>SB-001</td><td>固件更新</td><td><span class="badge badge-green">成功</span></td><td style="color:var(--text-2);">v2.0.8 → v2.1.0</td></tr>
+          <tr><td style="font-family:monospace;font-size:12px;">13:50:10</td><td>SB-003</td><td>设备离线</td><td><span class="badge badge-red">错误</span></td><td style="color:var(--text-2);">WiFi连接断开</td></tr>
+          <tr><td style="font-family:monospace;font-size:12px;">12:45:33</td><td>SB-001</td><td>温度过高</td><td><span class="badge badge-red">严重</span></td><td style="color:var(--text-2);">电机温度 78°C</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ===== PAGE: TRAINING ===== -->
+<div id="page-training" class="page">
+<div class="page-content">
+  <h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">训练中心</h2>
+  <p style="font-size:13px;color:var(--text-2);margin-bottom:20px;">实时监控训练状态，远程控制设备</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+    <!-- Mode Selection -->
+    <div class="card">
+      <div class="card-header"><div style="font-size:14px;font-weight:600;">训练模式</div><div class="badge badge-blue">定点发球</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+          <div id="mode-self_training" style="padding:16px;border-radius:10px;background:var(--bg-2);border:2px solid var(--border);text-align:center;cursor:pointer;transition:all .2s;" onclick="switchMode('self_training')">
+            <i data-lucide="dumbbell" style="width:28px;height:28px;color:var(--green);margin:0 auto 8px;display:block;"></i>
+            <div style="font-size:13px;font-weight:600;">自主训练</div>
+            <div style="font-size:11px;color:var(--text-2);margin-top:2px;">自由练习</div>
+          </div>
+          <div id="mode-fixed_point" style="padding:16px;border-radius:10px;background:rgba(59,130,246,0.05);border:2px solid var(--blue);text-align:center;cursor:pointer;" onclick="switchMode('fixed_point')">
+            <i data-lucide="crosshair" style="width:28px;height:28px;color:var(--blue);margin:0 auto 8px;display:block;"></i>
+            <div style="font-size:13px;font-weight:600;color:var(--blue);">定点发球</div>
+            <div style="font-size:11px;color:var(--text-2);margin-top:2px;">精确训练</div>
+          </div>
+          <div id="mode-footwork" style="padding:16px;border-radius:10px;background:var(--bg-2);border:2px solid var(--border);text-align:center;cursor:pointer;transition:all .2s;" onclick="switchMode('footwork')">
+            <i data-lucide="footprints" style="width:28px;height:28px;color:var(--yellow);margin:0 auto 8px;display:block;"></i>
+            <div style="font-size:13px;font-weight:600;">步伐训练</div>
+            <div style="font-size:11px;color:var(--text-2);margin-top:2px;">随机落点</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button id="btn-start" class="btn-primary" style="flex:1;height:42px;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--green);" onclick="startTraining()"><i data-lucide="play" style="width:16px;height:16px;"></i>开始训练</button>
+          <button id="btn-pause" class="btn-outline" style="flex:1;height:42px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="pauseTraining()"><i data-lucide="pause" style="width:16px;height:16px;"></i>暂停</button>
+          <button id="btn-stop" class="btn-outline" style="flex:1;height:42px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="stopTraining()"><i data-lucide="rotate-ccw" style="width:16px;height:16px;"></i>重置</button>
+        </div>
+      </div>
+    </div>
+    <!-- Parameters -->
+    <div class="card">
+      <div class="card-header"><div style="font-size:14px;font-weight:600;">参数设置</div></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:16px;">
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:var(--text-2);">发球速度</span><span id="param-speed-val" style="font-size:13px;font-weight:600;">85 km/h</span></div>
+          <input id="param-speed" type="range" min="30" max="150" value="85" style="width:100%;accent-color:var(--blue);height:6px;" oninput="document.getElementById('param-speed-val').textContent=this.value+' km/h'">
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:var(--text-2);">发球间隔</span><span id="param-interval-val" style="font-size:13px;font-weight:600;">2.0 秒</span></div>
+          <input id="param-interval" type="range" min="1" max="10" value="2" step="0.5" style="width:100%;accent-color:var(--blue);height:6px;" oninput="document.getElementById('param-interval-val').textContent=parseFloat(this.value).toFixed(1)+' 秒'">
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:var(--text-2);">训练时长</span><span id="param-duration-val" style="font-size:13px;font-weight:600;">45 分钟</span></div>
+          <input id="param-duration" type="range" min="10" max="120" value="45" style="width:100%;accent-color:var(--blue);height:6px;" oninput="document.getElementById('param-duration-val').textContent=this.value+' 分钟'">
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:var(--text-2);">落点区域</span><span id="param-zone-val" style="font-size:13px;font-weight:600;">A 区</span></div>
+          <div id="zone-buttons" style="display:flex;gap:6px;">
+            <button data-zone="A" style="flex:1;height:32px;background:var(--blue);border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;" onclick="selectZone('A',this)">A区</button>
+            <button data-zone="B" class="btn-outline" style="flex:1;height:32px;font-size:12px;" onclick="selectZone('B',this)">B区</button>
+            <button data-zone="C" class="btn-outline" style="flex:1;height:32px;font-size:12px;" onclick="selectZone('C',this)">C区</button>
+            <button data-zone="all" class="btn-outline" style="flex:1;height:32px;font-size:12px;" onclick="selectZone('all',this)">全场</button>
+          </div>
+          <button class="btn-primary" style="width:100%;height:36px;margin-top:8px;" onclick="sendTrainingParams()">下发参数</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Live Stats -->
+  <div class="card">
+    <div class="card-header"><div style="font-size:14px;font-weight:600;">实时训练数据</div><div style="display:flex;align-items:center;gap:6px;"><div style="width:6px;height:6px;border-radius:50%;background:var(--green);" class="pulse-dot"></div><span style="font-size:12px;color:var(--green);">训练中</span></div></div>
+    <div class="card-body">
+      <div class="chart-wrap"><div style="height:200px;"><canvas id="liveChart"></canvas></div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ===== PAGE: COURT ===== -->
+<div id="page-court" class="page">
+<div class="page-content">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div><h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">球场定位与轨迹分析</h2><p style="font-size:13px;color:var(--text-2);">UWB超宽带定位系统 · 标准羽毛球场地实时追踪与落点分析</p></div>
+    <div style="display:flex;gap:8px;">
+      <div class="badge badge-green" style="font-size:12px;padding:4px 12px;display:flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);" class="pulse-dot"></span>UWB定位中</div>
+      <button id="btn-fullscreen" class="btn-outline" style="height:30px;padding:0 12px;font-size:11px;cursor:pointer;" onclick="toggleFullscreen()"><i data-lucide="maximize-2" style="width:12px;height:12px;"></i> 全屏</button>
+    </div>
+  </div>
+
+  <!-- 主布局: 球场 + 右侧面板 -->
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:16px;">
+    <!-- 球场主视图 (SVG标准球场 + UWB) -->
+    <div class="card">
+      <div class="card-header">
+        <div style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;"><i data-lucide="map" style="width:16px;height:16px;color:var(--cyan);"></i>UWB球场俯视图</div>
+        <div style="display:flex;gap:6px;">
+          <button id="btn-trajectory" class="btn-outline" style="height:26px;padding:0 8px;font-size:10px;background:var(--bg-2);border-color:var(--cyan);color:var(--cyan);cursor:pointer;" onclick="toggleLayer('trajectory')">轨迹叠加</button>
+          <button id="btn-heatmap" class="btn-outline" style="height:26px;padding:0 8px;font-size:10px;cursor:pointer;" onclick="toggleLayer('heatmap')">热区图</button>
+          <button id="btn-uwb" class="btn-outline" style="height:26px;padding:0 8px;font-size:10px;cursor:pointer;" onclick="toggleLayer('uwb')">UWB信号</button>
+        </div>
+      </div>
+      <div class="card-body" style="padding:12px;">
+        <svg viewBox="0 0 780 560" style="width:100%;height:auto;border-radius:8px;background:#0A2818;">
+          <defs>
+            <radialGradient id="uwbGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#F59E0B" stop-opacity="0.2"/><stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/></radialGradient>
+            <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+
+          <!-- ===== 标准羽毛球场地 ===== -->
+          <!-- 双打外框 (13.4m x 6.1m) -->
+          <rect x="120" y="40" width="500" height="440" fill="#0D3320" stroke="#22763E" stroke-width="2.5" rx="2"/>
+          <!-- 单打边线 (13.4m x 5.18m) -->
+          <rect x="140" y="40" width="460" height="440" fill="none" stroke="#22763E" stroke-width="1.2" stroke-dasharray="8,4" opacity="0.5"/>
+          <!-- 中线 (垂直, 连接两网柱) -->
+          <line x1="370" y1="40" x2="370" y2="480" stroke="#4ade80" stroke-width="2.5" opacity="0.35"/>
+
+          <!-- 球网 -->
+          <line x1="112" y1="260" x2="628" y2="260" stroke="#e2e8f0" stroke-width="3"/>
+          <line x1="120" y1="257" x2="620" y2="257" stroke="#94A3B8" stroke-width="0.5" stroke-dasharray="3,3" opacity="0.4"/>
+          <line x1="120" y1="263" x2="620" y2="263" stroke="#94A3B8" stroke-width="0.5" stroke-dasharray="3,3" opacity="0.4"/>
+          <!-- 网柱 -->
+          <circle cx="112" cy="260" r="6" fill="#334155" stroke="#e2e8f0" stroke-width="2"/>
+          <circle cx="628" cy="260" r="6" fill="#334155" stroke="#e2e8f0" stroke-width="2"/>
+          <text x="100" y="252" text-anchor="end" fill="#64748B" font-size="7" font-weight="500">网柱</text>
+          <text x="640" y="252" fill="#64748B" font-size="7" font-weight="500">网柱</text>
+          <text x="370" y="254" text-anchor="middle" fill="#94A3B8" font-size="8" font-weight="600">球 网 1.55m</text>
+
+          <!-- 前发球线 (距网1.98m = 73px) -->
+          <line x1="120" y1="187" x2="620" y2="187" stroke="#22763E" stroke-width="1.5"/>
+          <line x1="120" y1="333" x2="620" y2="333" stroke="#22763E" stroke-width="1.5"/>
+          <!-- 双打后发球线 (距底线0.76m = 29px) -->
+          <line x1="120" y1="69" x2="620" y2="69" stroke="#22763E" stroke-width="1" stroke-dasharray="6,4" opacity="0.6"/>
+          <line x1="120" y1="451" x2="620" y2="451" stroke="#22763E" stroke-width="1" stroke-dasharray="6,4" opacity="0.6"/>
+
+          <!-- 发球区中线 (水平, 连接前后发球线) -->
+          <line x1="370" y1="40" x2="370" y2="69" stroke="#22763E" stroke-width="1.2" opacity="0.6"/>
+          <line x1="370" y1="69" x2="370" y2="187" stroke="#22763E" stroke-width="1.2"/>
+          <line x1="370" y1="333" x2="370" y2="451" stroke="#22763E" stroke-width="1.2"/>
+          <line x1="370" y1="451" x2="370" y2="480" stroke="#22763E" stroke-width="1.2" opacity="0.6"/>
+          <!-- 底线中点标记 -->
+          <line x1="370" y1="36" x2="370" y2="44" stroke="#22763E" stroke-width="1.5"/>
+          <line x1="370" y1="476" x2="370" y2="484" stroke="#22763E" stroke-width="1.5"/>
+
+          <!-- 半场标签 -->
+          <text x="370" y="30" text-anchor="middle" fill="#4ade80" font-size="10" opacity="0.45" font-weight="500">对 方 半 场</text>
+          <text x="370" y="500" text-anchor="middle" fill="#94A3B8" font-size="10" opacity="0.45" font-weight="500">本 方 半 场</text>
+
+          <!-- 场地尺寸标注 -->
+          <!-- 宽度标注 (上方) -->
+          <line x1="120" y1="16" x2="620" y2="16" stroke="#475569" stroke-width="0.8"/>
+          <line x1="120" y1="12" x2="120" y2="20" stroke="#475569" stroke-width="0.8"/>
+          <line x1="620" y1="12" x2="620" y2="20" stroke="#475569" stroke-width="0.8"/>
+          <text x="370" y="12" text-anchor="middle" fill="#64748B" font-size="9" font-weight="500">6.1m (双打宽度)</text>
+          <!-- 单打宽度 -->
+          <line x1="140" y1="24" x2="600" y2="24" stroke="#475569" stroke-width="0.5" opacity="0.5"/>
+          <text x="370" y="22" text-anchor="middle" fill="#475569" font-size="7">5.18m (单打)</text>
+          <!-- 长度标注 (左侧) -->
+          <line x1="106" y1="40" x2="106" y2="480" stroke="#475569" stroke-width="0.8"/>
+          <line x1="102" y1="40" x2="110" y2="40" stroke="#475569" stroke-width="0.8"/>
+          <line x1="102" y1="480" x2="110" y2="480" stroke="#475569" stroke-width="0.8"/>
+          <text x="100" y="264" text-anchor="end" fill="#64748B" font-size="9" font-weight="500" transform="rotate(-90,100,264)">13.4m (全长)</text>
+
+          <!-- 比例尺 -->
+          <line x1="640" y1="510" x2="716" y2="510" stroke="#475569" stroke-width="1"/>
+          <line x1="640" y1="506" x2="640" y2="514" stroke="#475569" stroke-width="1"/>
+          <line x1="716" y1="506" x2="716" y2="514" stroke="#475569" stroke-width="1"/>
+          <text x="678" y="504" text-anchor="middle" fill="#64748B" font-size="9">2m</text>
+
+          <!-- ===== UWB 基站 (4个场地四角) ===== -->
+
+          <g id="uwb-signal-layer">
+          <!-- BS-01 左上角 -->
+          <circle cx="72" cy="0" r="28" fill="url(#uwbGlow)"/>
+          <circle cx="72" cy="0" r="18" fill="none" stroke="#F59E0B" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.25"><animate attributeName="r" values="18;28;18" dur="3s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.25;0.05;0.25" dur="3s" repeatCount="indefinite"/></circle>
+          <circle cx="72" cy="0" r="30" fill="none" stroke="#F59E0B" stroke-width="0.6" stroke-dasharray="2,4" opacity="0.12"><animate attributeName="r" values="30;45;30" dur="3s" repeatCount="indefinite" begin="0.5s"/></circle>
+          <circle cx="72" cy="0" r="11" fill="rgba(245,158,11,0.15)" stroke="#F59E0B" stroke-width="2"/>
+          <circle cx="72" cy="0" r="4" fill="#F59E0B" filter="url(#glow)"/>
+          <text x="72" y="18" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="700">BS-01</text>
+          <text x="72" y="28" text-anchor="middle" fill="#92400E" font-size="6">左前</text>
+
+          <!-- BS-02 右上角 -->
+          <circle cx="668" cy="0" r="28" fill="url(#uwbGlow)"/>
+          <circle cx="668" cy="0" r="18" fill="none" stroke="#F59E0B" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.25"><animate attributeName="r" values="18;28;18" dur="3s" repeatCount="indefinite" begin="0.75s"/></circle>
+          <circle cx="668" cy="0" r="30" fill="none" stroke="#F59E0B" stroke-width="0.6" stroke-dasharray="2,4" opacity="0.12"><animate attributeName="r" values="30;45;30" dur="3s" repeatCount="indefinite" begin="1.25s"/></circle>
+          <circle cx="668" cy="0" r="11" fill="rgba(245,158,11,0.15)" stroke="#F59E0B" stroke-width="2"/>
+          <circle cx="668" cy="0" r="4" fill="#F59E0B" filter="url(#glow)"/>
+          <text x="668" y="18" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="700">BS-02</text>
+          <text x="668" y="28" text-anchor="middle" fill="#92400E" font-size="6">右前</text>
+
+          <!-- BS-03 右下角 -->
+          <circle cx="668" cy="520" r="28" fill="url(#uwbGlow)"/>
+          <circle cx="668" cy="520" r="18" fill="none" stroke="#F59E0B" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.25"><animate attributeName="r" values="18;28;18" dur="3s" repeatCount="indefinite" begin="1.5s"/></circle>
+          <circle cx="668" cy="520" r="30" fill="none" stroke="#F59E0B" stroke-width="0.6" stroke-dasharray="2,4" opacity="0.12"><animate attributeName="r" values="30;45;30" dur="3s" repeatCount="indefinite" begin="2s"/></circle>
+          <circle cx="668" cy="520" r="11" fill="rgba(245,158,11,0.15)" stroke="#F59E0B" stroke-width="2"/>
+          <circle cx="668" cy="520" r="4" fill="#F59E0B" filter="url(#glow)"/>
+          <text x="668" y="538" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="700">BS-03</text>
+          <text x="668" y="548" text-anchor="middle" fill="#92400E" font-size="6">右后</text>
+
+          <!-- BS-04 左下角 -->
+          <circle cx="72" cy="520" r="28" fill="url(#uwbGlow)"/>
+          <circle cx="72" cy="520" r="18" fill="none" stroke="#F59E0B" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.25"><animate attributeName="r" values="18;28;18" dur="3s" repeatCount="indefinite" begin="2.25s"/></circle>
+          <circle cx="72" cy="520" r="30" fill="none" stroke="#F59E0B" stroke-width="0.6" stroke-dasharray="2,4" opacity="0.12"><animate attributeName="r" values="30;45;30" dur="3s" repeatCount="indefinite" begin="2.75s"/></circle>
+          <circle cx="72" cy="520" r="11" fill="rgba(245,158,11,0.15)" stroke="#F59E0B" stroke-width="2"/>
+          <circle cx="72" cy="520" r="4" fill="#F59E0B" filter="url(#glow)"/>
+          <text x="72" y="538" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="700">BS-04</text>
+          <text x="72" y="548" text-anchor="middle" fill="#92400E" font-size="6">左后</text>
+
+          <!-- ===== UWB测距连线 (基站→设备) ===== -->
+          <!-- 设备位置: (370, 430) -->
+          <line x1="72" y1="0" x2="370" y2="430" stroke="#F59E0B" stroke-width="1" stroke-dasharray="5,4" opacity="0.3"/>
+          <line x1="668" y1="0" x2="370" y2="430" stroke="#F59E0B" stroke-width="1" stroke-dasharray="5,4" opacity="0.3"/>
+          <line x1="668" y1="520" x2="370" y2="430" stroke="#F59E0B" stroke-width="1" stroke-dasharray="5,4" opacity="0.3"/>
+          <line x1="72" y1="520" x2="370" y2="430" stroke="#F59E0B" stroke-width="1" stroke-dasharray="5,4" opacity="0.3"/>
+
+          <!-- 测距标注 (TOF距离) -->
+          <rect x="195" y="200" width="52" height="16" fill="rgba(11,17,32,0.8)" rx="3"/>
+          <text x="221" y="211" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="600">8.42m</text>
+          <rect x="494" y="200" width="52" height="16" fill="rgba(11,17,32,0.8)" rx="3"/>
+          <text x="520" y="211" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="600">7.85m</text>
+          <rect x="500" y="474" width="52" height="16" fill="rgba(11,17,32,0.8)" rx="3"/>
+          <text x="526" y="485" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="600">3.12m</text>
+          <rect x="190" y="474" width="52" height="16" fill="rgba(11,17,32,0.8)" rx="3"/>
+          <text x="216" y="485" text-anchor="middle" fill="#FBBF24" font-size="8" font-weight="600">3.95m</text>
+          </g>
+
+          <!-- ===== 目标落点区域 (对方半场) ===== -->
+          <!-- A区: 左前场 -->
+          <rect x="145" y="192" width="108" height="63" fill="rgba(74,222,128,0.06)" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="6,3" rx="4"/>
+          <text x="199" y="228" text-anchor="middle" fill="#4ade80" font-size="16" font-weight="700" opacity="0.6">A</text>
+          <text x="199" y="244" text-anchor="middle" fill="#4ade80" font-size="8" opacity="0.45">前左 82%</text>
+          <!-- B区: 中前场 -->
+          <rect x="258" y="192" width="107" height="63" fill="rgba(6,182,212,0.06)" stroke="#06B6D4" stroke-width="1.5" stroke-dasharray="6,3" rx="4"/>
+          <text x="311" y="228" text-anchor="middle" fill="#06B6D4" font-size="16" font-weight="700" opacity="0.6">B</text>
+          <text x="311" y="244" text-anchor="middle" fill="#06B6D4" font-size="8" opacity="0.45">前中 75%</text>
+          <!-- C区: 右前场 -->
+          <rect x="375" y="192" width="108" height="63" fill="rgba(59,130,246,0.06)" stroke="#3B82F6" stroke-width="1.5" stroke-dasharray="6,3" rx="4"/>
+          <text x="429" y="228" text-anchor="middle" fill="#3B82F6" font-size="16" font-weight="700" opacity="0.6">C</text>
+          <text x="429" y="244" text-anchor="middle" fill="#3B82F6" font-size="8" opacity="0.45">前右 76%</text>
+          <!-- D区: 左后场 -->
+          <rect x="145" y="45" width="108" height="137" fill="rgba(139,92,246,0.06)" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="6,3" rx="4"/>
+          <text x="199" y="118" text-anchor="middle" fill="#8B5CF6" font-size="16" font-weight="700" opacity="0.6">D</text>
+          <text x="199" y="136" text-anchor="middle" fill="#8B5CF6" font-size="8" opacity="0.45">后左 68%</text>
+          <!-- E区: 中后场 -->
+          <rect x="258" y="45" width="107" height="137" fill="rgba(245,158,11,0.06)" stroke="#F59E0B" stroke-width="1.5" stroke-dasharray="6,3" rx="4"/>
+          <text x="311" y="118" text-anchor="middle" fill="#F59E0B" font-size="16" font-weight="700" opacity="0.6">E</text>
+          <text x="311" y="136" text-anchor="middle" fill="#F59E0B" font-size="8" opacity="0.45">后中 71%</text>
+          <!-- F区: 右后场 -->
+          <rect x="375" y="45" width="108" height="137" fill="rgba(236,72,153,0.06)" stroke="#EC4899" stroke-width="1.5" stroke-dasharray="6,3" rx="4"/>
+          <text x="429" y="118" text-anchor="middle" fill="#EC4899" font-size="16" font-weight="700" opacity="0.6">F</text>
+          <text x="429" y="136" text-anchor="middle" fill="#EC4899" font-size="8" opacity="0.45">后右 65%</text>
+
+          <g id="heatmap-layer">
+          <!-- 落点标记 -->
+          <circle cx="185" cy="210" r="3.5" fill="#4ade80" opacity="0.6"/><circle cx="210" cy="220" r="3" fill="#4ade80" opacity="0.4"/>
+          <circle cx="195" cy="230" r="2.5" fill="#4ade80" opacity="0.5"/><circle cx="300" cy="205" r="3.5" fill="#06B6D4" opacity="0.6"/>
+          <circle cx="320" cy="220" r="3" fill="#06B6D4" opacity="0.4"/><circle cx="415" cy="210" r="3.5" fill="#3B82F6" opacity="0.6"/>
+          <circle cx="440" cy="225" r="3" fill="#3B82F6" opacity="0.4"/><circle cx="180" cy="80" r="3" fill="#8B5CF6" opacity="0.5"/>
+          <circle cx="210" cy="100" r="2.5" fill="#8B5CF6" opacity="0.4"/><circle cx="300" cy="70" r="3.5" fill="#F59E0B" opacity="0.6"/>
+          <circle cx="325" cy="95" r="3" fill="#F59E0B" opacity="0.4"/><circle cx="420" cy="75" r="3" fill="#EC4899" opacity="0.5"/>
+
+          <g id="trajectory-layer">
+          <!-- 发球轨迹曲线 -->
+          <path d="M 370 430 Q 280 320 199 215" fill="none" stroke="#FBBF24" stroke-width="2" stroke-dasharray="8,4" opacity="0.5"/>
+          <path d="M 370 430 Q 340 300 311 200" fill="none" stroke="#06B6D4" stroke-width="2" stroke-dasharray="8,4" opacity="0.4"/>
+          <path d="M 370 430 Q 410 250 429 80" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-dasharray="8,4" opacity="0.4"/>
+          <circle cx="199" cy="215" r="6" fill="#FBBF24" opacity="0.9"><animate attributeName="r" values="6;9;6" dur="2s" repeatCount="indefinite"/></circle>
+          <circle cx="311" cy="200" r="5" fill="#06B6D4" opacity="0.8"/>
+          <circle cx="429" cy="80" r="5" fill="#8B5CF6" opacity="0.8"/>
+          </g>
+
+          <!-- ===== 发球机 + UWB Tag ===== -->
+          <circle cx="370" cy="430" r="22" fill="none" stroke="var(--blue)" stroke-width="0.8" opacity="0.15"><animate attributeName="r" values="22;35;22" dur="3s" repeatCount="indefinite"/></circle>
+          <circle cx="370" cy="430" r="14" fill="rgba(59,130,246,0.15)" stroke="var(--blue)" stroke-width="1.5"/>
+          <circle cx="370" cy="430" r="6" fill="var(--blue)" filter="url(#glow)"/>
+          <text x="370" y="454" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700">ShuttleBot</text>
+          <text x="370" y="465" text-anchor="middle" fill="#FBBF24" font-size="7" font-weight="600">[ UWB Tag ]</text>
+
+          <!-- 球员位置 -->
+          <circle cx="250" cy="340" r="10" fill="rgba(236,72,153,0.12)"/>
+          <circle cx="250" cy="340" r="6" fill="var(--pink)"/>
+          <text x="250" y="358" text-anchor="middle" fill="#f9a8d4" font-size="9" font-weight="600">球员</text>
+          <path d="M 370 380 L 320 360 L 270 345 L 250 340" fill="none" stroke="#EC4899" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.4"/>
+          <circle cx="320" cy="360" r="2.5" fill="#EC4899" opacity="0.3"/>
+          <circle cx="270" cy="345" r="2.5" fill="#EC4899" opacity="0.3"/>
+
+          <!-- 图例 -->
+          <circle cx="648" cy="536" r="4" fill="#F59E0B" opacity="0.8"/>
+          <text x="656" y="539" fill="#94A3B8" font-size="7">UWB基站</text>
+          <circle cx="710" cy="536" r="4" fill="var(--blue)" opacity="0.8"/>
+          <text x="718" y="539" fill="#94A3B8" font-size="7">设备</text>
+          <circle cx="755" cy="536" r="4" fill="var(--pink)" opacity="0.8"/>
+          <text x="763" y="539" fill="#94A3B8" font-size="7">球员</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 右侧面板 -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <!-- 实时状态 -->
+      <div class="card">
+        <div class="card-header"><div style="font-size:13px;font-weight:600;">实时状态</div><div class="badge badge-green" style="font-size:10px;">UWB</div></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">当前落点区域</span><span class="badge badge-green" style="font-size:11px;">A区 (前左)</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">发球速度</span><span style="font-size:13px;font-weight:700;">85 km/h</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">已发球数</span><span style="font-size:13px;font-weight:700;">156</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:var(--text-2);">综合命中率</span><span style="font-size:13px;font-weight:700;color:var(--green);">78%</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;"><span style="font-size:12px;color:var(--text-2);">设备坐标</span><span style="font-size:11px;font-weight:600;font-family:monospace;color:var(--cyan);">X:3.28 Y:5.12</span></div>
+        </div>
+      </div>
+
+      <!-- UWB基站状态 -->
+      <div class="card" style="flex:1;">
+        <div class="card-header"><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;"><i data-lucide="radio" style="width:14px;height:14px;color:var(--yellow);"></i>UWB基站状态</div><div class="badge badge-green" style="font-size:10px;">4/4 在线</div></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:8px;">
+          <!-- BS-01 -->
+          <div style="background:var(--bg-2);border-radius:8px;padding:10px;border-left:3px solid #F59E0B;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-size:12px;font-weight:600;">BS-01 左前基站</span><div style="display:flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);" class="pulse-dot"></span><span style="font-size:10px;color:var(--green);">在线</span></div></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:10px;">
+              <div><span style="color:var(--text-2);">距离</span><div style="font-weight:700;color:var(--yellow);">8.42m</div></div>
+              <div><span style="color:var(--text-2);">信号</span><div style="font-weight:700;color:var(--green);">-62dBm</div></div>
+              <div><span style="color:var(--text-2);">延迟</span><div style="font-weight:700;">2.1ms</div></div>
+            </div>
+          </div>
+          <!-- BS-02 -->
+          <div style="background:var(--bg-2);border-radius:8px;padding:10px;border-left:3px solid #F59E0B;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-size:12px;font-weight:600;">BS-02 右前基站</span><div style="display:flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);" class="pulse-dot"></span><span style="font-size:10px;color:var(--green);">在线</span></div></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:10px;">
+              <div><span style="color:var(--text-2);">距离</span><div style="font-weight:700;color:var(--yellow);">7.85m</div></div>
+              <div><span style="color:var(--text-2);">信号</span><div style="font-weight:700;color:var(--green);">-58dBm</div></div>
+              <div><span style="color:var(--text-2);">延迟</span><div style="font-weight:700;">1.8ms</div></div>
+            </div>
+          </div>
+          <!-- BS-03 -->
+          <div style="background:var(--bg-2);border-radius:8px;padding:10px;border-left:3px solid #F59E0B;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-size:12px;font-weight:600;">BS-03 右后基站</span><div style="display:flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);" class="pulse-dot"></span><span style="font-size:10px;color:var(--green);">在线</span></div></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:10px;">
+              <div><span style="color:var(--text-2);">距离</span><div style="font-weight:700;color:var(--yellow);">3.12m</div></div>
+              <div><span style="color:var(--text-2);">信号</span><div style="font-weight:700;color:var(--green);">-45dBm</div></div>
+              <div><span style="color:var(--text-2);">延迟</span><div style="font-weight:700;">1.2ms</div></div>
+            </div>
+          </div>
+          <!-- BS-04 -->
+          <div style="background:var(--bg-2);border-radius:8px;padding:10px;border-left:3px solid #F59E0B;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-size:12px;font-weight:600;">BS-04 左后基站</span><div style="display:flex;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);" class="pulse-dot"></span><span style="font-size:10px;color:var(--green);">在线</span></div></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:10px;">
+              <div><span style="color:var(--text-2);">距离</span><div style="font-weight:700;color:var(--yellow);">3.95m</div></div>
+              <div><span style="color:var(--text-2);">信号</span><div style="font-weight:700;color:var(--green);">-51dBm</div></div>
+              <div><span style="color:var(--text-2);">延迟</span><div style="font-weight:700;">1.5ms</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部: UWB精度 + 运动数据 + 发球序列 + 落点分布 -->
+  <div style="display:grid;grid-template-columns:300px 1fr 1fr 1fr;gap:16px;">
+    <!-- UWB定位精度 -->
+    <div class="card">
+      <div class="card-header"><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;"><i data-lucide="crosshair" style="width:14px;height:14px;color:var(--cyan);"></i>UWB定位精度</div></div>
+      <div class="card-body">
+        <div style="text-align:center;margin-bottom:12px;">
+          <div style="font-size:32px;font-weight:800;color:var(--cyan);">±0.15<span style="font-size:14px;font-weight:400;">m</span></div>
+          <div style="font-size:11px;color:var(--text-2);">定位误差范围</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;border-bottom:1px solid var(--border);"><span style="color:var(--text-2);">更新频率</span><span style="font-weight:600;">10 Hz</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;border-bottom:1px solid var(--border);"><span style="color:var(--text-2);">定位算法</span><span style="font-weight:600;">TDOA</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;border-bottom:1px solid var(--border);"><span style="color:var(--text-2);">工作频段</span><span style="font-weight:600;">6.5 GHz</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;"><span style="color:var(--text-2);">基站同步</span><span style="font-weight:600;color:var(--green);">已同步</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 运动轨迹数据 -->
+    <div class="card">
+      <div class="card-header"><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;"><i data-lucide="activity" style="width:14px;height:14px;color:var(--pink);"></i>球员运动数据</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="background:var(--bg-2);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;color:var(--text-2);">总移动距离</div><div style="font-size:20px;font-weight:800;">1,245<span style="font-size:10px;font-weight:400;color:var(--text-2);"> m</span></div></div>
+          <div style="background:var(--bg-2);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;color:var(--text-2);">最高速度</div><div style="font-size:20px;font-weight:800;">6.8<span style="font-size:10px;font-weight:400;color:var(--text-2);"> m/s</span></div></div>
+          <div style="background:var(--bg-2);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;color:var(--text-2);">平均速度</div><div style="font-size:20px;font-weight:800;">3.2<span style="font-size:10px;font-weight:400;color:var(--text-2);"> m/s</span></div></div>
+          <div style="background:var(--bg-2);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;color:var(--text-2);">覆盖面积</div><div style="font-size:20px;font-weight:800;color:var(--cyan);">68<span style="font-size:10px;font-weight:400;">%</span></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">
+          <div style="text-align:center;"><div style="font-size:10px;color:var(--text-2);">回位次数</div><div style="font-size:15px;font-weight:700;">42</div></div>
+          <div style="text-align:center;"><div style="font-size:10px;color:var(--text-2);">冲刺次数</div><div style="font-size:15px;font-weight:700;">18</div></div>
+          <div style="text-align:center;"><div style="font-size:10px;color:var(--text-2);">反应时间</div><div style="font-size:15px;font-weight:700;">0.8<span style="font-size:10px;color:var(--text-2);">s</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 发球序列记录 -->
+    <div class="card">
+      <div class="card-header"><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;"><i data-lucide="list-ordered" style="width:14px;height:14px;color:var(--cyan);"></i>最近发球序列</div></div>
+      <div class="card-body" style="padding:0 20px 16px;">
+        <table class="data-table" style="font-size:12px;">
+          <thead><tr><th>#</th><th>区域</th><th>速度</th><th>命中</th></tr></thead>
+          <tbody>
+            <tr><td>156</td><td><span style="color:var(--green);font-weight:600;">A区</span></td><td>85 km/h</td><td><span style="color:var(--green);">&#10003;</span></td></tr>
+            <tr><td>155</td><td><span style="color:var(--blue);font-weight:600;">C区</span></td><td>90 km/h</td><td><span style="color:var(--green);">&#10003;</span></td></tr>
+            <tr><td>154</td><td><span style="color:var(--purple);font-weight:600;">D区</span></td><td>95 km/h</td><td><span style="color:var(--red);">&#10007;</span></td></tr>
+            <tr><td>153</td><td><span style="color:var(--yellow);font-weight:600;">E区</span></td><td>88 km/h</td><td><span style="color:var(--green);">&#10003;</span></td></tr>
+            <tr><td>152</td><td><span style="color:var(--cyan);font-weight:600;">B区</span></td><td>82 km/h</td><td><span style="color:var(--green);">&#10003;</span></td></tr>
+            <tr><td>151</td><td><span style="color:var(--green);font-weight:600;">A区</span></td><td>85 km/h</td><td><span style="color:var(--green);">&#10003;</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 发球分布统计 -->
+    <div class="card">
+      <div class="card-header"><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;"><i data-lucide="pie-chart" style="width:14px;height:14px;color:var(--purple);"></i>落点分布</div></div>
+      <div class="card-body">
+        <div style="height:170px;"><canvas id="courtDistChart"></canvas></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px;font-size:10px;">
+          <div style="text-align:center;"><span style="color:var(--text-2);">前场占比</span><br><span style="font-weight:700;color:var(--green);">48%</span></div>
+          <div style="text-align:center;"><span style="color:var(--text-2);">后场占比</span><br><span style="font-weight:700;color:var(--purple);">35%</span></div>
+          <div style="text-align:center;"><span style="color:var(--text-2);">中场占比</span><br><span style="font-weight:700;color:var(--cyan);">17%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<!-- ===== PAGE: ANALYTICS ===== -->
+<div id="page-analytics" class="page">
+<div class="page-content">
+  <h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">数据分析</h2>
+  <p style="font-size:13px;color:var(--text-2);margin-bottom:20px;">深入分析训练表现和历史数据趋势</p>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+    <div class="card kpi-card kpi-blue"><div class="card-body" style="text-align:center;"><div style="font-size:10px;color:var(--text-2);margin-bottom:4px;">总训练时长</div><div id="analytics-total-hours" style="font-size:26px;font-weight:800;">24.5<span style="font-size:12px;font-weight:400;">h</span></div></div></div>
+    <div class="card kpi-card kpi-green"><div class="card-body" style="text-align:center;"><div style="font-size:10px;color:var(--text-2);margin-bottom:4px;">总发球数</div><div id="analytics-total-servings" style="font-size:26px;font-weight:800;">3,842</div></div></div>
+    <div class="card kpi-card kpi-purple"><div class="card-body" style="text-align:center;"><div style="font-size:10px;color:var(--text-2);margin-bottom:4px;">最高命中率</div><div id="analytics-avg-accuracy" style="font-size:26px;font-weight:800;">92<span style="font-size:12px;font-weight:400;">%</span></div></div></div>
+    <div class="card kpi-card kpi-yellow"><div class="card-body" style="text-align:center;"><div style="font-size:10px;color:var(--text-2);margin-bottom:4px;">最高球速</div><div id="analytics-max-speed" style="font-size:26px;font-weight:800;">120<span style="font-size:12px;font-weight:400;">km/h</span></div></div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+    <div class="card"><div class="card-header"><div style="font-size:14px;font-weight:600;">命中率趋势</div></div><div class="card-body"><div class="chart-wrap"><div style="height:200px;"><canvas id="accChart"></canvas></div></div></div></div>
+    <div class="card"><div class="card-header"><div style="font-size:14px;font-weight:600;">速度分布</div></div><div class="card-body"><div class="chart-wrap"><div style="height:200px;"><canvas id="speedChart"></canvas></div></div></div></div>
+  </div>
+  <!-- Training History Table -->
+  <div class="card">
+    <div class="card-header"><div style="font-size:14px;font-weight:600;">训练历史</div><div style="display:flex;gap:6px;"><button class="btn-outline" style="height:28px;padding:0 10px;font-size:11px;"><i data-lucide="download" style="width:12px;height:12px;"></i> 导出</button></div></div>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>日期</th><th>模式</th><th>时长</th><th>发球数</th><th>命中率</th><th>最高速度</th><th>评分</th></tr></thead>
+        <tbody id="training-history-body">
+          <tr><td>2026-06-13</td><td><span class="badge badge-blue">定点发球</span></td><td>45 min</td><td>156</td><td style="color:var(--green);font-weight:600;">82%</td><td>95 km/h</td><td><span style="color:var(--yellow);font-weight:700;">A</span></td></tr>
+          <tr><td>2026-06-12</td><td><span class="badge badge-yellow">步伐训练</span></td><td>30 min</td><td>98</td><td style="color:var(--yellow);font-weight:600;">71%</td><td>88 km/h</td><td><span style="color:var(--blue);font-weight:700;">B+</span></td></tr>
+          <tr><td>2026-06-11</td><td><span class="badge badge-green">自主训练</span></td><td>60 min</td><td>210</td><td style="color:var(--green);font-weight:600;">88%</td><td>102 km/h</td><td><span style="color:var(--green);font-weight:700;">A+</span></td></tr>
+          <tr><td>2026-06-10</td><td><span class="badge badge-blue">定点发球</span></td><td>40 min</td><td>132</td><td style="color:var(--blue);font-weight:600;">79%</td><td>90 km/h</td><td><span style="color:var(--blue);font-weight:700;">B+</span></td></tr>
+          <tr><td>2026-06-09</td><td><span class="badge badge-yellow">步伐训练</span></td><td>35 min</td><td>88</td><td style="color:var(--yellow);font-weight:600;">68%</td><td>85 km/h</td><td><span style="color:var(--blue);font-weight:700;">B</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ===== PAGE: ALERTS ===== -->
+<div id="page-alerts" class="page">
+<div class="page-content">
+  <h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">告警日志</h2>
+  <p style="font-size:13px;color:var(--text-2);margin-bottom:20px;">设备异常记录与系统告警管理</p>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+    <div class="card kpi-card kpi-red"><div class="card-body" style="text-align:center;"><div style="font-size:10px;color:var(--text-2);">严重告警</div><div id="alert-kpi-critical" style="font-size:26px;font-weight:800;">3</div></div></div>
+    <div class="card kpi-card kpi-yellow"><div class="card-body" style="text-align:center;"><div style="font-size:10px;color:var(--text-2);">一般警告</div><div id="alert-kpi-warning" style="font-size:26px;font-weight:800;">8</div></div></div>
+    <div class="card kpi-card kpi-green"><div class="card-body" style="text-align:center;"><div style="font-size:10px;color:var(--text-2);">已解决</div><div id="alert-kpi-resolved" style="font-size:26px;font-weight:800;">15</div></div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div style="font-size:14px;font-weight:600;">告警列表</div><div style="display:flex;gap:6px;"><button class="btn-outline" style="height:28px;padding:0 10px;font-size:11px;">全部</button><button class="btn-outline" style="height:28px;padding:0 10px;font-size:11px;">未处理</button></div></div>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>时间</th><th>级别</th><th>设备</th><th>描述</th><th>状态</th></tr></thead>
+        <tbody id="alerts-table-body">
+          <tr><td style="font-family:monospace;font-size:12px;">06/13 12:15</td><td><span class="badge badge-red">严重</span></td><td>SB-001</td><td>电机温度超过阈值 (78°C)</td><td><span class="badge badge-yellow">处理中</span></td></tr>
+          <tr><td style="font-family:monospace;font-size:12px;">06/13 10:30</td><td><span class="badge badge-yellow">警告</span></td><td>SB-002</td><td>WiFi信号弱 (RSSI: -82dBm)</td><td><span class="badge badge-green">已解决</span></td></tr>
+          <tr><td style="font-family:monospace;font-size:12px;">06/12 16:45</td><td><span class="badge badge-red">严重</span></td><td>SB-003</td><td>设备突然离线，无法连接</td><td><span class="badge badge-yellow">处理中</span></td></tr>
+          <tr><td style="font-family:monospace;font-size:12px;">06/12 09:20</td><td><span class="badge badge-yellow">警告</span></td><td>SB-001</td><td>RPM瞬时值超过3000</td><td><span class="badge badge-green">已解决</span></td></tr>
+          <tr><td style="font-family:monospace;font-size:12px;">06/11 14:10</td><td><span class="badge badge-blue">信息</span></td><td>SB-001</td><td>固件自动更新至v2.1.0</td><td><span class="badge badge-green">完成</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ===== PAGE: USERS ===== -->
+<div id="page-users" class="page">
+<div class="page-content">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div><h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">用户管理</h2><p style="font-size:13px;color:var(--text-2);">管理训练用户及其数据</p></div>
+    <button class="btn-primary" style="height:38px;padding:0 20px;display:flex;align-items:center;gap:6px;"><i data-lucide="user-plus" style="width:16px;height:16px;"></i>添加用户</button>
+  </div>
+  <div class="card">
+    <div class="card-body" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>用户</th><th>等级</th><th>总训练次数</th><th>总时长</th><th>平均命中率</th><th>最近训练</th><th>操作</th></tr></thead>
+        <tbody id="users-table-body">
+          <tr>
+            <td><div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">陈</div><div><div style="font-weight:500;">陈宇豪</div><div style="font-size:11px;color:var(--text-2);">admin@sb.com</div></div></div></td>
+            <td><span class="badge badge-purple">Lv.5</span></td><td style="font-weight:600;">48</td><td>24.5h</td><td style="color:var(--green);font-weight:600;">78%</td><td>今天</td>
+            <td><button class="btn-outline" style="height:28px;padding:0 10px;font-size:11px;">编辑</button></td>
+          </tr>
+          <tr>
+            <td><div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">李</div><div><div style="font-weight:500;">李明远</div><div style="font-size:11px;color:var(--text-2);">limy@sb.com</div></div></div></td>
+            <td><span class="badge badge-blue">Lv.3</span></td><td style="font-weight:600;">22</td><td>12.8h</td><td style="color:var(--yellow);font-weight:600;">72%</td><td>昨天</td>
+            <td><button class="btn-outline" style="height:28px;padding:0 10px;font-size:11px;">编辑</button></td>
+          </tr>
+          <tr>
+            <td><div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--yellow),var(--red));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">王</div><div><div style="font-weight:500;">王建华</div><div style="font-size:11px;color:var(--text-2);">wjh@sb.com</div></div></div></td>
+            <td><span class="badge badge-green">Lv.2</span></td><td style="font-weight:600;">8</td><td>4.2h</td><td style="color:var(--blue);font-weight:600;">65%</td><td>3天前</td>
+            <td><button class="btn-outline" style="height:28px;padding:0 10px;font-size:11px;">编辑</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ===== PAGE: SETTINGS ===== -->
+<div id="page-settings" class="page">
+<div class="page-content">
+  <h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">系统设置</h2>
+  <p style="font-size:13px;color:var(--text-2);margin-bottom:20px;">配置云平台与设备默认参数</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="card">
+      <div class="card-header"><div style="font-size:14px;font-weight:600;">默认训练参数</div></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
+        <div><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:var(--text-2);">默认发球速度</span><span id="setting-speed-val" style="font-size:13px;font-weight:600;">75 km/h</span></div><input id="setting-speed" type="range" min="30" max="150" value="75" style="width:100%;accent-color:var(--blue);" oninput="document.getElementById('setting-speed-val').textContent=this.value+' km/h'"></div>
+        <div><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:var(--text-2);">默认发球间隔</span><span id="setting-interval-val" style="font-size:13px;font-weight:600;">2.5 秒</span></div><input id="setting-interval" type="range" min="1" max="10" value="2.5" step="0.5" style="width:100%;accent-color:var(--blue);" oninput="document.getElementById('setting-interval-val').textContent=parseFloat(this.value).toFixed(1)+' 秒'"></div>
+        <div><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:var(--text-2);">默认训练时长</span><span id="setting-duration-val" style="font-size:13px;font-weight:600;">45 分钟</span></div><input id="setting-duration" type="range" min="10" max="120" value="45" style="width:100%;accent-color:var(--blue);" oninput="document.getElementById('setting-duration-val').textContent=this.value+' 分钟'"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div style="font-size:14px;font-weight:600;">功能开关</div></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div><div style="font-size:13px;font-weight:500;">声音提示</div><div style="font-size:11px;color:var(--text-2);">发球时播放提示音</div></div>
+          <div class="switch on" onclick="this.classList.toggle('on');this.classList.toggle('off');"><div class="knob"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div><div style="font-size:13px;font-weight:500;">自动数据记录</div><div style="font-size:11px;color:var(--text-2);">训练开始自动记录</div></div>
+          <div class="switch on" onclick="this.classList.toggle('on');this.classList.toggle('off');"><div class="knob"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div><div style="font-size:13px;font-weight:500;">异常报警</div><div style="font-size:11px;color:var(--text-2);">电机异常时推送通知</div></div>
+          <div class="switch on" onclick="this.classList.toggle('on');this.classList.toggle('off');"><div class="knob"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
+          <div><div style="font-size:13px;font-weight:500;">节能模式</div><div style="font-size:11px;color:var(--text-2);">空闲5分钟自动降功耗</div></div>
+          <div class="switch off" onclick="this.classList.toggle('on');this.classList.toggle('off');"><div class="knob"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div style="font-size:14px;font-weight:600;">云平台配置</div></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:12px;">
+        <div><label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px;">MQTT Broker 地址</label><input id="setting-mqtt" class="input-field" value="mqtt://192.168.1.100:1883"></div>
+        <div><label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px;">数据上报间隔 (秒)</label><input id="setting-report-interval" class="input-field" type="number" value="5"></div>
+        <div><label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:4px;">设备发现协议</label>
+          <select id="setting-discovery" class="input-field" style="cursor:pointer;"><option>mDNS (局域网)</option><option>MQTT Discovery</option><option>BLE Provisioning</option></select>
+        </div>
+        <button class="btn-primary" style="width:100%;height:38px;margin-top:8px;" onclick="saveSettings()">保存设置</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div style="font-size:14px;font-weight:600;">关于系统</div></div>
+      <div class="card-body">
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;">
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-2);">云平台版本</span><span style="font-weight:600;">v2.1.0</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-2);">固件协议</span><span style="font-weight:600;">ShuttleBot Protocol v3</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-2);">数据库</span><span style="font-weight:600;">SQLite 3.42</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-2);">运行时间</span><span style="font-weight:600;">15天 4小时</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-2);">存储用量</span><span style="font-weight:600;">234 MB / 1 GB</span></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px;">
+          <button class="btn-outline" style="flex:1;height:36px;font-size:12px;">检查更新</button>
+          <button class="btn-outline" style="flex:1;height:36px;font-size:12px;color:var(--red);border-color:rgba(239,68,68,0.3);">重启系统</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+</div><!-- end main-wrap -->
+</div><!-- end mainApp -->
+
+<script>
+lucide.createIcons();
+let chartsInit = false;
+
+// ===== API Configuration (change this URL to your backend) =====
+const API_BASE = 'http://localhost:3000';
+let authToken = null;
+let currentUser = null;
+let selectedZone = 'A';
+let pollTimer = null;
+
+// Helper: fetch with auth header
+async function apiFetch(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+  try {
+    const res = await fetch(API_BASE + path, { ...options, headers });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } catch (e) {
+    console.warn('[API] ' + path + ' failed:', e.message);
+    return null;
+  }
+}
+
+function safeSetText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+function safeSetHTML(id, html) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = html;
+}
+
+function formatTime(dateStr) {
+  try {
+    const d = new Date(dateStr);
+    return (d.getMonth()+1).toString().padStart(2,'0') + '/' + d.getDate().toString().padStart(2,'0') + ' ' + d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+  } catch(e) { return dateStr; }
+}
+
+function formatRuntime(seconds) {
+  if (!seconds && seconds !== 0) return '--';
+  var h = Math.floor(seconds / 3600);
+  var m = Math.floor((seconds % 3600) / 60);
+  return h + 'h ' + m + 'm';
+}
+
+function timeAgo(dateStr) {
+  try {
+    var diff = Date.now() - new Date(dateStr).getTime();
+    var mins = Math.floor(diff / 60000);
+    if (mins < 1) return '刚刚';
+    if (mins < 60) return mins + '分钟前';
+    var hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + '小时前';
+    return Math.floor(hrs / 24) + '天前';
+  } catch(e) { return dateStr; }
+}
+
+async function doLogin() {
+  var email = (document.getElementById('loginEmail') || {}).value || 'admin@shuttlebot.com';
+  var password = (document.getElementById('loginPassword') || {}).value || 'admin123';
+  var result = await apiFetch('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email: email, password: password })
+  });
+  if (result && result.code === 0 && result.data) {
+    authToken = result.data.token;
+    currentUser = result.data.user;
+    safeSetText('user-name', currentUser.username || '用户');
+    safeSetText('user-role', currentUser.role === 'admin' ? '管理员' : '用户');
+    safeSetText('user-avatar', currentUser.avatar_initial || (currentUser.username ? currentUser.username.charAt(0) : 'U'));
+  }
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  lucide.createIcons();
+  if (!chartsInit) { initCharts(); chartsInit = true; }
+  loadDashboard();
+  pollTimer = setInterval(refreshSensorData, 10000);
+}
+
+function logout() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  authToken = null;
+  currentUser = null;
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'flex';
+}
+
+function switchPage(pageId, navItem) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + pageId).classList.add('active');
+  document.querySelectorAll('.sidebar-nav-item').forEach(n => n.classList.remove('active'));
+  if (navItem) navItem.classList.add('active');
+  var titles = { dashboard:'控制台', device:'设备管理', training:'训练中心', court:'球场定位', analytics:'数据分析', alerts:'告警日志', users:'用户管理', settings:'系统设置' };
+  document.getElementById('pageTitle').textContent = titles[pageId] || pageId;
+  lucide.createIcons();
+  if (pageId === 'dashboard') loadDashboard();
+  else if (pageId === 'device') loadDevices();
+  else if (pageId === 'alerts') loadAlerts();
+  else if (pageId === 'users') loadUsers();
+  else if (pageId === 'settings') loadSettings();
+  else if (pageId === 'analytics') loadAnalytics();
+  else if (pageId === 'training') { /* training page uses real-time controls */ }
+}
+
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  const w = sb.classList.contains('collapsed') ? '64px' : '220px';
+  document.querySelector('.main-wrap').style.marginLeft = w;
+  document.querySelector('.main-wrap').style.width = 'calc(100vw - ' + (sb.classList.contains('collapsed') ? 64 : 220) + 'px)';
+}
+
+function initCharts() {
+  const c1 = document.getElementById('trendChart');
+  if (c1) window.trendChartInstance = new Chart(c1, {
+    type:'line',
+    data:{ labels:['6/7','6/8','6/9','6/10','6/11','6/12','6/13'],
+      datasets:[
+        { label:'训练时长(h)', data:[1.2,1.5,0.8,1.8,1.3,1.0,1.5], borderColor:'#3B82F6', backgroundColor:'rgba(59,130,246,0.08)', fill:true, tension:.4, pointRadius:4, pointBackgroundColor:'#3B82F6' },
+        { label:'命中率(%)', data:[65,72,68,79,88,71,82], borderColor:'#22C55E', backgroundColor:'rgba(34,197,94,0.08)', fill:true, tension:.4, pointRadius:4, pointBackgroundColor:'#22C55E', yAxisID:'y1' }
+      ]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94A3B8',font:{size:11}}}}, scales:{ x:{ticks:{color:'#64748B'},grid:{color:'rgba(30,48,80,0.3)'}}, y:{ticks:{color:'#64748B'},grid:{color:'rgba(30,48,80,0.3)'},position:'left'}, y1:{ticks:{color:'#64748B'},grid:{drawOnChartArea:false},position:'right'} } }
+  });
+
+  const c2 = document.getElementById('modeChart');
+  if (c2) window.modeChartInstance = new Chart(c2, {
+    type:'doughnut',
+    data:{ labels:['定点发球','自主训练','步伐训练'], datasets:[{ data:[45,30,25], backgroundColor:['#3B82F6','#22C55E','#F59E0B'], borderWidth:0 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'70%', plugins:{legend:{display:false}} }
+  });
+
+  const c3 = document.getElementById('liveChart');
+  if (c3) window.liveChartInstance = new Chart(c3, {
+    type:'line',
+    data:{ labels:Array.from({length:20},(_,i)=>i+'s'), datasets:[{ label:'球速(km/h)', data:[82,85,78,90,88,85,92,87,83,86,89,91,84,88,86,82,90,87,85,88], borderColor:'#3B82F6', backgroundColor:'rgba(59,130,246,0.1)', fill:true, tension:.3, pointRadius:0 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94A3B8'}}}, scales:{ x:{ticks:{color:'#64748B',maxTicksLimit:10},grid:{color:'rgba(30,48,80,0.3)'}}, y:{ticks:{color:'#64748B'},grid:{color:'rgba(30,48,80,0.3)'},min:60,max:110} } }
+  });
+
+  const c4 = document.getElementById('accChart');
+  if (c4) window.accChartInstance = new Chart(c4, {
+    type:'line',
+    data:{ labels:['W1','W2','W3','W4','W5','W6','W7','W8'], datasets:[{ label:'命中率%', data:[62,65,68,72,70,75,78,82], borderColor:'#8B5CF6', backgroundColor:'rgba(139,92,246,0.1)', fill:true, tension:.4, pointRadius:3 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94A3B8'}}}, scales:{ x:{ticks:{color:'#64748B'},grid:{color:'rgba(30,48,80,0.3)'}}, y:{ticks:{color:'#64748B'},grid:{color:'rgba(30,48,80,0.3)'},min:50} } }
+  });
+
+  const c5 = document.getElementById('speedChart');
+  if (c5) window.speedChartInstance = new Chart(c5, {
+    type:'bar',
+    data:{ labels:['60-70','70-80','80-90','90-100','100-110','110+'], datasets:[{ label:'发球次数', data:[15,42,68,45,22,8], backgroundColor:['rgba(59,130,246,0.3)','rgba(59,130,246,0.4)','rgba(59,130,246,0.6)','rgba(59,130,246,0.8)','rgba(59,130,246,0.9)','#3B82F6'], borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94A3B8'}}}, scales:{ x:{ticks:{color:'#64748B'},grid:{display:false}}, y:{ticks:{color:'#64748B'},grid:{color:'rgba(30,48,80,0.3)'}} } }
+  });
+
+  const c6 = document.getElementById('courtDistChart');
+  if (c6) window.courtDistChartInstance = new Chart(c6, {
+    type:'doughnut',
+    data:{ labels:['A前左','B前中','C前右','D后左','E后中','F后右'],
+      datasets:[{ data:[28,12,8,18,20,14],
+        backgroundColor:['#22C55E','#06B6D4','#3B82F6','#8B5CF6','#F59E0B','#EC4899'], borderWidth:0 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'65%',
+      plugins:{ legend:{ position:'right', labels:{ color:'#94A3B8', font:{size:10}, padding:8, boxWidth:10 } } }
+    }
+  });
+}
+// ===== Court Page Toggle Functions =====
+function toggleLayer(layer) {
+  var btnId = 'btn-' + layer;
+  var btn = document.getElementById(btnId);
+  if (layer === 'trajectory') {
+    var el = document.getElementById('trajectory-layer');
+    if (!el) return;
+    var hidden = el.style.display === 'none';
+    el.style.display = hidden ? '' : 'none';
+    if (btn) {
+      btn.style.background = hidden ? 'var(--bg-2)' : 'var(--cyan)';
+      btn.style.borderColor = hidden ? 'var(--border)' : 'var(--cyan)';
+      btn.style.color = hidden ? 'var(--text-1)' : '#fff';
+    }
+  } else if (layer === 'heatmap') {
+    var el = document.getElementById('heatmap-layer');
+    if (!el) return;
+    var hidden = el.style.display === 'none';
+    el.style.display = hidden ? '' : 'none';
+    if (btn) {
+      btn.style.background = hidden ? 'transparent' : 'var(--purple)';
+      btn.style.borderColor = hidden ? 'var(--border)' : 'var(--purple)';
+      btn.style.color = hidden ? 'var(--text-1)' : '#fff';
+    }
+  } else if (layer === 'uwb') {
+    var el = document.getElementById('uwb-signal-layer');
+    if (!el) return;
+    var hidden = el.style.display === 'none';
+    el.style.display = hidden ? '' : 'none';
+    if (btn) {
+      btn.style.background = hidden ? 'transparent' : 'var(--yellow)';
+      btn.style.borderColor = hidden ? 'var(--border)' : 'var(--yellow)';
+      btn.style.color = hidden ? 'var(--text-1)' : '#000';
+    }
+  }
+}
+
+function toggleFullscreen() {
+  var el = document.getElementById('page-court');
+  if (!el) return;
+  if (!document.fullscreenElement) {
+    el.requestFullscreen().catch(function(err) {
+      console.log('Fullscreen failed:', err);
+    });
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+// ===== Data Loading Functions =====
+
+async function loadDashboard() {
+  var result = await apiFetch('/api/dashboard');
+  if (!result || result.code !== 0) return;
+  var d = result.data;
+  safeSetText('kpi-online-devices', (d.online_devices || 0) + '/' + (d.total_devices || 0));
+  var kpiTrain = document.getElementById('kpi-today-training');
+  if (kpiTrain) kpiTrain.innerHTML = (d.today_training_hours || 0) + '<span style="font-size:14px;font-weight:400;color:var(--text-2);">h</span>';
+  safeSetText('kpi-total-servings', (d.total_servings || 0).toLocaleString());
+  var kpiAcc = document.getElementById('kpi-avg-accuracy');
+  if (kpiAcc) kpiAcc.innerHTML = (d.avg_accuracy || 0) + '<span style="font-size:14px;font-weight:400;color:var(--text-2);">%</span>';
+  safeSetText('kpi-alerts-count', d.unresolved_alerts || 0);
+  if (d.latest_sensor) {
+    var s = d.latest_sensor;
+    var envW = document.getElementById('env-wind');
+    if (envW) envW.innerHTML = (s.wind_speed != null ? s.wind_speed.toFixed(1) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;"> m/s</span>';
+    var envT = document.getElementById('env-temp');
+    if (envT) envT.innerHTML = (s.temperature != null ? s.temperature.toFixed(1) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;"> \u00b0C</span>';
+    var envH = document.getElementById('env-humidity');
+    if (envH) envH.innerHTML = (s.humidity != null ? Math.round(s.humidity) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;">%</span>';
+    var envP = document.getElementById('env-pressure');
+    if (envP) envP.innerHTML = (s.pressure != null ? Math.round(s.pressure) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;"> hPa</span>';
+  }
+  if (d.recent_alerts && d.recent_alerts.length > 0) {
+    var html = '';
+    d.recent_alerts.forEach(function(a) {
+      var dotColor = a.level === 'critical' ? 'var(--red)' : a.level === 'warning' ? 'var(--yellow)' : 'var(--green)';
+      var badgeClass = a.level === 'critical' ? 'badge-red' : a.level === 'warning' ? 'badge-yellow' : 'badge-green';
+      var borderColor = a.level === 'critical' ? '239,68,68' : a.level === 'warning' ? '245,158,11' : '34,197,94';
+      var labelText = a.level === 'critical' ? '\u4e25\u91cd' : a.level === 'warning' ? '\u8b66\u544a' : '\u5b8c\u6210';
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(' + borderColor + ',0.05);border:1px solid rgba(' + borderColor + ',0.1);border-radius:8px;">' +
+        '<div style="width:8px;height:8px;border-radius:50%;background:' + dotColor + ';flex-shrink:0;" class="pulse-dot"></div>' +
+        '<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:500;">' + (a.description || '') + '</div>' +
+        '<div style="font-size:11px;color:var(--text-2);">' + (a.device_name || '') + ' \u00b7 ' + timeAgo(a.created_at) + '</div></div>' +
+        '<span class="badge ' + badgeClass + '">' + labelText + '</span></div>';
+    });
+    safeSetHTML('dashboard-recent-alerts', html);
+    lucide.createIcons();
+  }
+}
+
+async function loadDevices() {
+  var result = await apiFetch('/api/devices');
+  if (!result || result.code !== 0 || !result.data) return;
+  var devices = result.data;
+  var container = document.getElementById('device-cards');
+  if (container && devices.length > 0) {
+    var html = '';
+    devices.forEach(function(dev) {
+      var online = dev.status === 'online';
+      var borderColor = online ? 'var(--green)' : 'var(--text-3)';
+      var iconBg = online ? 'rgba(34,197,94,0.1)' : 'rgba(71,85,105,0.2)';
+      var iconColor = online ? 'var(--green)' : 'var(--text-3)';
+      var badgeHtml = online ? '<div class="badge badge-green">\u5728\u7ebf</div>' : '<div class="badge" style="background:rgba(71,85,105,0.15);color:var(--text-2);">\u79bb\u7ebf</div>';
+      var batteryColor = online ? 'var(--green)' : 'var(--text-2)';
+      var batteryText = dev.battery_level != null ? dev.battery_level + '%' : '--';
+      html += '<div class="card" style="border-left:3px solid ' + borderColor + ';"><div class="card-body">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+        '<div style="display:flex;align-items:center;gap:10px;">' +
+        '<div style="width:40px;height:40px;border-radius:10px;background:' + iconBg + ';display:flex;align-items:center;justify-content:center;"><i data-lucide="cpu" style="width:20px;height:20px;color:' + iconColor + ';"></i></div>' +
+        '<div><div style="font-size:14px;font-weight:600;">' + (dev.name || '') + '</div><div style="font-size:11px;color:var(--text-2);">SN: ' + (dev.serial_number || '') + '</div></div></div>' +
+        badgeHtml + '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">' +
+        '<div><span style="color:var(--text-2);">\u56fa\u4ef6</span><br><span style="font-weight:600;">' + (dev.firmware_version || '--') + '</span></div>' +
+        '<div><span style="color:var(--text-2);">\u7535\u91cf</span><br><span style="font-weight:600;color:' + batteryColor + ';">' + batteryText + '</span></div>' +
+        '<div><span style="color:var(--text-2);">\u8fd0\u884c\u65f6\u957f</span><br><span style="font-weight:600;">' + formatRuntime(dev.runtime_seconds) + '</span></div>' +
+        '<div><span style="color:var(--text-2);">\u6700\u540e\u540c\u6b65</span><br><span style="font-weight:600;">' + timeAgo(dev.last_seen) + '</span></div></div>' +
+        '<div style="display:flex;gap:6px;margin-top:14px;">' +
+        '<button class="btn-outline" style="flex:1;height:32px;font-size:11px;">\u8be6\u60c5</button>' +
+        '<button class="btn-outline" style="flex:1;height:32px;font-size:11px;"' + (!online ? ' disabled style="flex:1;height:32px;font-size:11px;opacity:.5;"' : '') + '>\u8fdc\u7a0b\u63a7\u5236</button></div></div></div>';
+    });
+    container.innerHTML = html;
+    lucide.createIcons();
+  }
+  if (devices.length > 0) {
+    var logResult = await apiFetch('/api/devices/' + devices[0].device_id + '/logs');
+    if (logResult && logResult.code === 0 && logResult.data) {
+      var tbody = document.getElementById('device-log-body');
+      if (tbody) {
+        var logHtml = '';
+        logResult.data.forEach(function(log) {
+          logHtml += '<tr><td style="font-family:monospace;font-size:12px;">' + formatTime(log.created_at || log.timestamp) + '</td><td>' + (log.device_name || devices[0].name) + '</td><td>' + (log.event || log.message || '') + '</td><td><span class="badge badge-blue">' + (log.type || '\u4fe1\u606f') + '</span></td><td style="color:var(--text-2);">' + (log.detail || '') + '</td></tr>';
+        });
+        tbody.innerHTML = logHtml;
+      }
+    }
+  }
+}
+
+async function loadAlerts() {
+  var result = await apiFetch('/api/alerts');
+  if (!result || result.code !== 0 || !result.data) return;
+  if (result.summary) {
+    safeSetText('alert-kpi-critical', result.summary.critical || 0);
+    safeSetText('alert-kpi-warning', result.summary.warning || 0);
+    safeSetText('alert-kpi-resolved', result.summary.resolved || 0);
+    safeSetText('kpi-alerts-count', result.summary.unresolved || 0);
+  }
+  var tbody = document.getElementById('alerts-table-body');
+  if (tbody && result.data.length > 0) {
+    var html = '';
+    result.data.forEach(function(a) {
+      var levelBadge = a.level === 'critical' ? '<span class="badge badge-red">\u4e25\u91cd</span>' : a.level === 'warning' ? '<span class="badge badge-yellow">\u8b66\u544a</span>' : '<span class="badge badge-blue">\u4fe1\u606f</span>';
+      var statusBadge = a.status === 'resolved' ? '<span class="badge badge-green">\u5df2\u89e3\u51b3</span>' : a.status === 'completed' ? '<span class="badge badge-green">\u5b8c\u6210</span>' : '<span class="badge badge-yellow">\u5904\u7406\u4e2d</span>';
+      html += '<tr><td style="font-family:monospace;font-size:12px;">' + formatTime(a.created_at) + '</td><td>' + levelBadge + '</td><td>' + (a.device_name || '--') + '</td><td>' + (a.description || '') + '</td><td>' + statusBadge + (a.status !== 'resolved' && a.status !== 'completed' ? ' <button class="btn-outline" style="height:22px;padding:0 8px;font-size:10px;margin-left:4px;" onclick="resolveAlert(' + a.id + ')">\u89e3\u51b3</button>' : '') + '</td></tr>';
+    });
+    tbody.innerHTML = html;
+  }
+}
+
+async function resolveAlert(id) {
+  var result = await apiFetch('/api/alerts/' + id + '/resolve', { method: 'PUT' });
+  if (result && result.code === 0) { loadAlerts(); loadDashboard(); }
+}
+
+async function loadUsers() {
+  var result = await apiFetch('/api/auth/users');
+  if (!result || result.code !== 0 || !result.data) return;
+  var tbody = document.getElementById('users-table-body');
+  if (tbody && result.data.length > 0) {
+    var html = '';
+    var gradients = ['linear-gradient(135deg,var(--blue),var(--purple))','linear-gradient(135deg,var(--green),var(--cyan))','linear-gradient(135deg,var(--yellow),var(--red))'];
+    result.data.forEach(function(u, i) {
+      var initial = u.avatar_initial || (u.username ? u.username.charAt(0) : 'U');
+      var bg = gradients[i % gradients.length];
+      var levelBadge = u.level ? '<span class="badge badge-purple">Lv.' + u.level + '</span>' : '<span class="badge badge-blue">--</span>';
+      html += '<tr><td><div style="display:flex;align-items:center;gap:10px;">' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">' + initial + '</div>' +
+        '<div><div style="font-weight:500;">' + (u.username || '') + '</div><div style="font-size:11px;color:var(--text-2);">' + (u.email || '') + '</div></div></div></td>' +
+        '<td>' + levelBadge + '</td><td style="font-weight:600;">' + (u.total_sessions || '--') + '</td><td>' + (u.total_hours || '--') + '</td>' +
+        '<td style="color:var(--green);font-weight:600;">' + (u.avg_accuracy ? u.avg_accuracy + '%' : '--') + '</td><td>' + (u.last_training || '--') + '</td>' +
+        '<td><button class="btn-outline" style="height:28px;padding:0 10px;font-size:11px;">\u7f16\u8f91</button></td></tr>';
+    });
+    tbody.innerHTML = html;
+  }
+}
+
+async function loadSettings() {
+  var result = await apiFetch('/api/settings');
+  if (!result || result.code !== 0 || !result.data) return;
+  var s = result.data;
+  var el;
+  el = document.getElementById('setting-speed');
+  if (el && s.default_speed != null) { el.value = s.default_speed; safeSetText('setting-speed-val', s.default_speed + ' km/h'); }
+  el = document.getElementById('setting-interval');
+  if (el && s.default_interval != null) { el.value = s.default_interval; safeSetText('setting-interval-val', parseFloat(s.default_interval).toFixed(1) + ' \u79d2'); }
+  el = document.getElementById('setting-duration');
+  if (el && s.default_duration != null) { el.value = s.default_duration; safeSetText('setting-duration-val', s.default_duration + ' \u5206\u949f'); }
+  el = document.getElementById('setting-mqtt'); if (el && s.mqtt_broker) el.value = s.mqtt_broker;
+  el = document.getElementById('setting-report-interval'); if (el && s.report_interval != null) el.value = s.report_interval;
+}
+
+async function saveSettings() {
+  var settings = {};
+  var el;
+  el = document.getElementById('setting-speed'); if (el) settings.default_speed = parseInt(el.value);
+  el = document.getElementById('setting-interval'); if (el) settings.default_interval = parseFloat(el.value);
+  el = document.getElementById('setting-duration'); if (el) settings.default_duration = parseInt(el.value);
+  el = document.getElementById('setting-mqtt'); if (el) settings.mqtt_broker = el.value;
+  el = document.getElementById('setting-report-interval'); if (el) settings.report_interval = parseInt(el.value);
+  var toggles = document.querySelectorAll('#page-settings .switch');
+  if (toggles.length >= 4) {
+    settings.sound_enabled = toggles[0].classList.contains('on');
+    settings.auto_record = toggles[1].classList.contains('on');
+    settings.alert_enabled = toggles[2].classList.contains('on');
+    settings.power_saving = toggles[3].classList.contains('on');
+  }
+  var result = await apiFetch('/api/settings', { method: 'PUT', body: JSON.stringify(settings) });
+  if (result && result.code === 0) alert('\u8bbe\u7f6e\u5df2\u4fdd\u5b58');
+}
+
+async function loadAnalytics() {
+  var statsResult = await apiFetch('/api/training/stats');
+  var historyResult = await apiFetch('/api/sensors/history?range=24h&limit=100');
+  if (statsResult && statsResult.code === 0 && statsResult.data) {
+    var d = statsResult.data;
+    var el;
+    el = document.getElementById('analytics-total-hours');
+    if (el) el.innerHTML = (d.total_hours || 0) + '<span style="font-size:12px;font-weight:400;">h</span>';
+    safeSetText('analytics-total-servings', (d.total_servings || 0).toLocaleString());
+    el = document.getElementById('analytics-avg-accuracy');
+    if (el) el.innerHTML = (d.avg_accuracy || 0) + '<span style="font-size:12px;font-weight:400;">%</span>';
+    el = document.getElementById('analytics-max-speed');
+    if (el) el.innerHTML = (d.max_speed || 0) + '<span style="font-size:12px;font-weight:400;">km/h</span>';
+  }
+  if (historyResult && historyResult.code === 0 && historyResult.data && historyResult.data.length > 0) {
+    var sensorData = historyResult.data;
+    var labels = sensorData.map(function(d) { return formatTime(d.timestamp); });
+    var tempData = sensorData.map(function(d) { return d.temperature; });
+    var humData = sensorData.map(function(d) { return d.humidity; });
+    if (window.accChartInstance) {
+      window.accChartInstance.data.labels = labels;
+      window.accChartInstance.data.datasets[0].data = tempData;
+      window.accChartInstance.data.datasets[0].label = '\u6e29\u5ea6(\u00b0C)';
+      window.accChartInstance.data.datasets[0].borderColor = '#F59E0B';
+      window.accChartInstance.update();
+    }
+    if (window.speedChartInstance) {
+      window.speedChartInstance.data.labels = labels;
+      window.speedChartInstance.data.datasets[0].data = humData;
+      window.speedChartInstance.data.datasets[0].label = '\u6e7f\u5ea6(%)';
+      window.speedChartInstance.update();
+    }
+  }
+  var trainResult = await apiFetch('/api/training');
+  if (trainResult && trainResult.code === 0 && trainResult.data) {
+    var tbody = document.getElementById('training-history-body');
+    if (tbody && trainResult.data.length > 0) {
+      var html = '';
+      var modeLabels = { fixed_point: '\u5b9a\u70b9\u53d1\u7403', self_training: '\u81ea\u4e3b\u8bad\u7ec3', footwork: '\u6b65\u4f10\u8bad\u7ec3' };
+      var modeBadges = { fixed_point: 'badge-blue', self_training: 'badge-green', footwork: 'badge-yellow' };
+      trainResult.data.forEach(function(t) {
+        var modeLabel = modeLabels[t.mode] || t.mode || '--';
+        var modeBadge = modeBadges[t.mode] || 'badge-blue';
+        html += '<tr><td>' + (t.date || formatTime(t.created_at)) + '</td>' +
+          '<td><span class="badge ' + modeBadge + '">' + modeLabel + '</span></td>' +
+          '<td>' + (t.duration || '--') + ' min</td>' +
+          '<td>' + (t.servings || '--') + '</td>' +
+          '<td style="color:var(--green);font-weight:600;">' + (t.accuracy || '--') + '%</td>' +
+          '<td>' + (t.max_speed || '--') + ' km/h</td>' +
+          '<td><span style="color:var(--yellow);font-weight:700;">' + (t.rating || '--') + '</span></td></tr>';
+      });
+      tbody.innerHTML = html;
+    }
+  }
+}
+
+// ===== Training Control Functions =====
+
+async function startTraining() {
+  await apiFetch('/api/control/training/action', { method: 'POST', body: JSON.stringify({ action: 'start' }) });
+}
+async function pauseTraining() {
+  await apiFetch('/api/control/training/action', { method: 'POST', body: JSON.stringify({ action: 'pause' }) });
+}
+async function stopTraining() {
+  await apiFetch('/api/control/training/action', { method: 'POST', body: JSON.stringify({ action: 'stop' }) });
+}
+
+async function switchMode(mode) {
+  selectedZone = 'A';
+  var modes = ['fixed_point', 'self_training', 'footwork'];
+  var modeColors = { fixed_point: 'var(--blue)', self_training: 'var(--green)', footwork: 'var(--yellow)' };
+  modes.forEach(function(m) {
+    var el = document.getElementById('mode-' + m);
+    if (!el) return;
+    if (m === mode) {
+      el.style.background = 'rgba(' + (m === 'fixed_point' ? '59,130,246' : m === 'self_training' ? '34,197,94' : '245,158,11') + ',0.05)';
+      el.style.borderColor = modeColors[m];
+    } else {
+      el.style.background = 'var(--bg-2)';
+      el.style.borderColor = 'var(--border)';
+    }
+  });
+  await apiFetch('/api/control/training/mode', { method: 'POST', body: JSON.stringify({ mode: mode }) });
+}
+
+function selectZone(zone, btn) {
+  selectedZone = zone;
+  var btns = document.querySelectorAll('#zone-buttons button');
+  btns.forEach(function(b) {
+    b.style.background = 'transparent';
+    b.className = 'btn-outline';
+    b.style.color = '';
+  });
+  if (btn) {
+    btn.style.background = 'var(--blue)';
+    btn.style.color = '#fff';
+    btn.className = '';
+  }
+  var label = document.getElementById('param-zone-val');
+  if (label) label.textContent = zone === 'all' ? '\u5168\u573a' : zone + ' \u533a';
+}
+
+async function sendTrainingParams() {
+  var speed = parseInt((document.getElementById('param-speed') || {}).value) || 85;
+  var interval = parseFloat((document.getElementById('param-interval') || {}).value) || 2;
+  var duration = parseInt((document.getElementById('param-duration') || {}).value) || 45;
+  var result = await apiFetch('/api/control/training/params', {
+    method: 'POST',
+    body: JSON.stringify({ speed: speed, interval: interval, duration: duration, zone: selectedZone })
+  });
+  if (result && result.code === 0) alert('\u53c2\u6570\u5df2\u4e0b\u53d1');
+}
+
+async function controlLed(action) {
+  await apiFetch('/api/control/led', { method: 'POST', body: JSON.stringify({ action: action }) });
+}
+
+async function refreshSensorData() {
+  var result = await apiFetch('/api/sensors/latest');
+  if (!result || result.code !== 0 || !result.data) return;
+  var s = result.data.sensor;
+  if (!s) return;
+  var el;
+  el = document.getElementById('env-wind');
+  if (el) el.innerHTML = (s.wind_speed != null ? s.wind_speed.toFixed(1) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;"> m/s</span>';
+  el = document.getElementById('env-temp');
+  if (el) el.innerHTML = (s.temperature != null ? s.temperature.toFixed(1) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;"> \u00b0C</span>';
+  el = document.getElementById('env-humidity');
+  if (el) el.innerHTML = (s.humidity != null ? Math.round(s.humidity) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;">%</span>';
+  el = document.getElementById('env-pressure');
+  if (el) el.innerHTML = (s.pressure != null ? Math.round(s.pressure) : '--') + '<span style="font-size:12px;color:var(--text-2);font-weight:400;"> hPa</span>';
+}
+</script>
+</body>
+</html>
